@@ -1,0 +1,19 @@
+<div class="navbar bg-base-100 shadow-sm">
+  <span class="text-xl font-semibold px-4">{{ clubName() }} · Media</span>
+</div>
+
+<main class="container mx-auto p-6">
+  <div class="hero bg-base-200 rounded-box min-h-64">
+    <div class="hero-content text-center">
+      <div class="max-w-xl">
+        <h1 class="text-4xl font-bold">Matchday DAM</h1>
+        <p class="py-4">
+          Bezpieczne repozytorium materiałów medialnych klubu {{ clubName() }}. Logowanie, upload i galeria
+          pojawią się w etapie 1.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <router-outlet />
+</main>

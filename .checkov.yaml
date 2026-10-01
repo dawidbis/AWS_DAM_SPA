@@ -1,0 +1,22 @@
+# Konfiguracja Checkov dla infra/. Każde wyłączenie ma uzasadnienie
+# wynikające z założeń kosztowych (rozdział 7.3) lub architektury projektu.
+framework:
+  - terraform
+compact: true
+quiet: true
+skip-download: true
+skip-check:
+  # S3
+  - CKV_AWS_18   # access logging: osobny bucket logów to koszt; w dev wystarcza CloudTrail
+  - CKV_AWS_144  # replikacja między regionami: jeden region (rozdział 7.1)
+  - CKV_AWS_145  # KMS CMK: świadomie SSE-S3, KMS ma stałą opłatę za klucz (rozdział 7.3)
+  - CKV2_AWS_62  # event notifications: włączane tylko na buckecie kwarantanny (etap 1)
+  # Lambda
+  - CKV_AWS_50   # X-Ray: rozważane w etapie 3 (obserwowalność)
+  - CKV_AWS_116  # DLQ: funkcje asynchroniczne dostają DLQ przez SQS (etap 1), synchroniczne jej nie potrzebują
+  - CKV_AWS_117  # VPC: Lambdy poza VPC, bez NAT Gateway (rozdział 7.3, rozdział 8)
+  - CKV_AWS_173  # szyfrowanie zmiennych środowiskowych KMS CMK: brak sekretów w zmiennych, koszt KMS
+  - CKV_AWS_272  # code signing: poza zakresem projektu edukacyjnego
+  # CloudWatch Logs
+  - CKV_AWS_158  # KMS dla logów: koszt KMS, domyślne szyfrowanie CloudWatch wystarcza
+  - CKV_AWS_338  # retencja >= 1 rok: celowo 7-14 dni ze względu na koszty (rozdział 13)

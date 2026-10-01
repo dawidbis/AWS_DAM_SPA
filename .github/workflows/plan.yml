@@ -1,0 +1,98 @@
+name: Terraform plan
+
+on:
+  pull_request:
+    paths:
+      - infra/**
+      - lambdas/**
+      - .github/workflows/plan.yml
+
+permissions:
+  contents: read
+  id-token: write       # OIDC do AWS (rola dam-github-plan)
+  pull-requests: write  # komentarz z wynikiem planu
+
+concurrency:
+  group: plan-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TF_VERSION: "~1.16.0"
+  TF_DIR: infra/envs/dev
+
+jobs:
+  plan:
+    name: terraform plan (dev)
+    # Wymaga zmiennych z infra/bootstrap (patrz docs/setup-aws.md). Pull requesty
+    # z forków nie dostają tokenu OIDC, więc je pomijamy.
+    if: vars.AWS_PLAN_ROLE_ARN != '' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/build-lambdas
+
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ vars.AWS_PLAN_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: gh-plan-${{ github.run_id }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: terraform init
+        run: terraform -chdir="$TF_DIR" init -input=false -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+
+      - name: terraform plan
+        id: plan
+        run: |
+          set +e
+          terraform -chdir="$TF_DIR" plan -input=false -no-color -lock-timeout=2m -detailed-exitcode -out=tfplan > plan.txt 2>&1
+          code=$?
+          set -e
+          cat plan.txt
+          echo "exitcode=$code" >> "$GITHUB_OUTPUT"
+          # 0 = brak zmian, 2 = są zmiany, 1 = błąd
+          if [ "$code" -eq 1 ]; then exit 1; fi
+
+      - name: Komentarz w PR
+        if: always() && steps.plan.outputs.exitcode != ''
+        uses: actions/github-script@v8
+        env:
+          EXIT_CODE: ${{ steps.plan.outputs.exitcode }}
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- terraform-plan:dev -->';
+            let plan = fs.readFileSync('plan.txt', 'utf8');
+            const max = 60000;
+            if (plan.length > max) {
+              plan = '…(obcięto początek, pełny log w Actions)\n' + plan.slice(-max);
+            }
+            const status = { '0': '✅ brak zmian', '2': '📝 są zmiany', '1': '❌ błąd' }[process.env.EXIT_CODE] ?? '❔';
+            const body = [
+              marker,
+              `### Terraform plan · \`dev\` · ${status}`,
+              '',
+              '<details><summary>Pokaż plan</summary>',
+              '',
+              '```',
+              plan,
+              '```',
+              '</details>',
+              '',
+              `_Commit ${context.sha.slice(0, 7)} · [log](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})_`,
+            ].join('\n');
+            const { data: comments } = await github.rest.issues.listComments({
+              ...context.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+            const existing = comments.find((c) => c.user.type === 'Bot' && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ ...context.repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: context.issue.number, body });
+            }

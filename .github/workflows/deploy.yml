@@ -1,0 +1,62 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: false
+
+env:
+  TF_VERSION: "~1.16.0"
+  TF_DIR: infra/envs/dev
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    name: Deploy (dev)
+    needs: ci
+    if: vars.AWS_DEPLOY_ROLE_ARN != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # OIDC do AWS (rola dam-github-deploy)
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/build-lambdas
+
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: gh-deploy-${{ github.run_id }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: terraform init
+        run: terraform -chdir="$TF_DIR" init -input=false -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+
+      - name: terraform apply
+        run: terraform -chdir="$TF_DIR" apply -input=false -auto-approve -lock-timeout=5m
+
+      - name: Smoke test hello-world
+        run: |
+          fn=$(terraform -chdir="$TF_DIR" output -raw hello_world_function_name)
+          aws lambda invoke --function-name "$fn" \
+            --cli-binary-format raw-in-base64-out \
+            --payload '{"name":"GitHub Actions"}' response.json > meta.json
+          cat response.json; echo
+          if jq -e '.FunctionError' meta.json > /dev/null; then
+            echo "::error::Lambda zwróciła błąd"; exit 1
+          fi
+          jq -e '.message == "Hello, GitHub Actions!"' response.json

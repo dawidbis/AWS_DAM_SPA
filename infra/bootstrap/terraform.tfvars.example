@@ -1,0 +1,7 @@
+# Skopiuj do terraform.tfvars (plik jest w .gitignore) i uzupełnij.
+budget_alert_email = "ty@example.com"
+
+# Opcjonalnie:
+# region            = "eu-central-1"
+# github_repository = "dawidbis/AWS_DAM_SPA"
+# budget_limits_usd = [5, 20]

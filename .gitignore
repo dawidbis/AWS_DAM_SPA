@@ -1,0 +1,29 @@
+# Rust
+/lambdas/target/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+crash.log
+crash.*.log
+*.tfvars
+!*.tfvars.example
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Node / Angular (szczegóły w frontend/.gitignore)
+node_modules/
+
+# Edytory i system
+.idea/
+.DS_Store
+*.swp
+
+# Lokalne sekrety
+.env
+.env.*

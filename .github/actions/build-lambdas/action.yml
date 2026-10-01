@@ -1,0 +1,23 @@
+name: Build Rust Lambdas
+description: Buduje wszystkie Lambdy z lambdas/ przez Cargo Lambda (arm64, zip)
+
+runs:
+  using: composite
+  steps:
+    - uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: aarch64-unknown-linux-gnu
+    - uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: lambdas
+        key: cargo-lambda-arm64
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+    - name: Install Cargo Lambda
+      shell: bash
+      run: pip install cargo-lambda
+    - name: cargo lambda build
+      shell: bash
+      working-directory: lambdas
+      run: cargo lambda build --release --arm64 --output-format zip --locked

@@ -1,0 +1,11 @@
+# Architecture Decision Records
+
+Format: krótki [MADR](https://adr.github.io/madr/) — kontekst, decyzja, konsekwencje. Nowy ADR: skopiuj [`template.md`](template.md), nadaj kolejny numer.
+
+| Nr | Decyzja | Status |
+|---|---|---|
+| [0003](0003-terraform.md) | Terraform jako IaC | Zaakceptowany |
+| [0012](0012-single-aws-account.md) | Jedno konto AWS w fazie Free Planu | Zaakceptowany |
+| [0013](0013-github-oidc-deploy-roles.md) | GitHub OIDC, role plan/deploy i permission boundary | Zaakceptowany |
+
+Pozostałe ADR-y z rozdziału 15 dokumentu projektu powstaną w etapach, w których zapadają decyzje.

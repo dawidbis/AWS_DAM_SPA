@@ -1,0 +1,21 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+  - package-ecosystem: cargo
+    directory: /lambdas
+    schedule:
+      interval: monthly
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: monthly
+    groups:
+      angular:
+        patterns: ["@angular/*", "@angular-devkit/*", "angular-eslint"]
+  - package-ecosystem: terraform
+    directories: ["/infra/bootstrap", "/infra/envs/dev"]
+    schedule:
+      interval: monthly
