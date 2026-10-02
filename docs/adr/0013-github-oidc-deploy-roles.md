@@ -9,12 +9,12 @@ CI musi wdrażać infrastrukturę, w tym tworzyć role IAM dla Lambd. Nie chcemy
 
 ## Decyzja
 
-**Uwierzytelnienie:** dostawca OIDC `token.actions.githubusercontent.com`, warunki `aud = sts.amazonaws.com` i dokładny `sub`.
+**Uwierzytelnienie:** dostawca OIDC `token.actions.githubusercontent.com`, warunki `aud = sts.amazonaws.com` i dokładny `sub`. GitHub wystawia `sub` z niezmiennymi ID: `repo:<owner>@<owner_id>/<repo>@<repo_id>:<kontekst>`, więc token z repozytorium założonego ponownie pod tą samą nazwą nie przejdzie.
 
 | Rola | `sub` w trust policy | Uprawnienia |
 |---|---|---|
-| `dam-github-plan` | `repo:<repo>:pull_request` | `ReadOnlyAccess` + zapis/usuwanie tylko plików `*.tflock` w buckecie stanu |
-| `dam-github-deploy` | `repo:<repo>:ref:refs/heads/main` | `PowerUserAccess` + `dam-github-deploy-iam` (role i polityki `dam-*`) |
+| `dam-github-plan` | `repo:<owner>@<id>/<repo>@<id>:pull_request` | `ReadOnlyAccess` + zapis/usuwanie tylko plików `*.tflock` w buckecie stanu |
+| `dam-github-deploy` | `repo:<owner>@<id>/<repo>@<id>:ref:refs/heads/main` | `PowerUserAccess` + `dam-github-deploy-iam` (role i polityki `dam-*`) |
 
 **Permission boundary `dam-permissions-boundary`** jest przypięte do obu ról GitHub i do każdej roli tworzonej przez deploy. Efektywne uprawnienia to część wspólna polityk roli i boundary. Boundary:
 

@@ -37,7 +37,8 @@ Bucket stanu jeszcze nie istnieje, więc pierwsze `apply` robimy ze stanem lokal
 
 ```bash
 cp infra/bootstrap/terraform.tfvars.example infra/bootstrap/terraform.tfvars
-# uzupełnij budget_alert_email (i github_repository, jeśli inne niż dawidbis/AWS_DAM_SPA)
+# uzupełnij budget_alert_email; dla innego repozytorium także github_repository,
+# github_owner_id i github_repository_id (ID z GitHub API, patrz komentarze w pliku)
 echo 'terraform {
   backend "local" {}
 }' > infra/bootstrap/backend_override.tf

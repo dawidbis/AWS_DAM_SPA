@@ -3,5 +3,7 @@ budget_alert_email = "ty@example.com"
 
 # Opcjonalnie:
 # region            = "eu-central-1"
-# github_repository = "dawidbis/AWS_DAM_SPA"
+# github_repository    = "dawidbis/AWS_DAM_SPA"
+# github_owner_id      = "147335334"   # GitHub API: /users/<owner> -> id
+# github_repository_id = "1400562492"  # GitHub API: /repos/<owner>/<repo> -> id
 # budget_limits_usd = [5, 20]
