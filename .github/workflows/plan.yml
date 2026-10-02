@@ -1,11 +1,10 @@
 name: Terraform plan
 
+# Bez filtra ścieżek: „terraform plan (dev)” jest wymaganym checkiem w regułach
+# gałęzi main, więc musi raportować wynik w każdym PR (także samego frontendu).
+# Przy okazji wykrywa rozjazd między stanem Terraform a AWS.
 on:
   pull_request:
-    paths:
-      - infra/**
-      - lambdas/**
-      - .github/workflows/plan.yml
 
 permissions:
   contents: read
