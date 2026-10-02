@@ -10,8 +10,9 @@ RUN apt-get update \
  && mkdir -p /var/lib/clamav
 
 COPY freshclam.conf /etc/clamav/freshclam.conf
+# freshclam zapisuje bazę z uprawnieniami 644 w katalogu 755, więc użytkownik
+# nobody może ją czytać bez dodatkowego chmod.
 RUN freshclam --config-file=/etc/clamav/freshclam.conf \
- && chmod -R a+rX /var/lib/clamav \
  && ls -la /var/lib/clamav
 
 COPY clamd.conf /etc/clamav/clamd.conf
