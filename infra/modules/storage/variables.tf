@@ -18,13 +18,14 @@ variable "bucket_access" {
       readers = ["dam-validate", "dam-scan", "dam-cdr", "dam-handle-infected"]
       writers = ["dam-upload-init", "dam-upload-status", "dam-upload-complete"]
     }
+    # dam-scan zapisuje wynik sam do czasu Step Functions (etap 2).
     clean = {
       readers = ["dam-assets-read"]
-      writers = ["dam-finalize-clean", "dam-cdr"]
+      writers = ["dam-scan", "dam-finalize-clean", "dam-cdr"]
     }
     infected = {
       readers = []
-      writers = ["dam-handle-infected"]
+      writers = ["dam-scan", "dam-handle-infected"]
     }
   }
 

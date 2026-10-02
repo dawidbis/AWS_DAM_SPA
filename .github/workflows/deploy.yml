@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  # Cotygodniowe odświeżenie sygnatur ClamAV (przebudowa obrazu skanera).
+  schedule:
+    - cron: "23 4 * * 1"
 
 permissions:
   contents: read
@@ -15,6 +18,7 @@ concurrency:
 env:
   TF_VERSION: "~1.16.0"
   TF_DIR: infra/envs/dev
+  TF_VAR_alert_email: ${{ vars.ALERT_EMAIL }}
 
 jobs:
   ci:
@@ -30,6 +34,8 @@ jobs:
       id-token: write  # OIDC do AWS (rola dam-github-deploy)
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2 # build-scanner.sh porównuje z poprzednim commitem
       - uses: ./.github/actions/build-lambdas
 
       - uses: aws-actions/configure-aws-credentials@v5
@@ -45,6 +51,18 @@ jobs:
 
       - name: terraform init
         run: terraform -chdir="$TF_DIR" init -input=false -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+
+      # Repozytorium ECR musi istnieć przed wypchnięciem obrazu skanera.
+      - name: ECR dla skanera
+        run: >-
+          terraform -chdir="$TF_DIR" apply -input=false -auto-approve -lock-timeout=5m
+          -target=module.scanner.aws_ecr_repository.this
+          -target=module.scanner.aws_ecr_lifecycle_policy.this
+
+      - name: Obraz skanera ClamAV
+        env:
+          FORCE_SCANNER_BUILD: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+        run: ./scripts/build-scanner.sh
 
       - name: terraform apply
         run: terraform -chdir="$TF_DIR" apply -input=false -auto-approve -lock-timeout=5m

@@ -109,6 +109,33 @@ pub async fn get_upload_session(
     UploadSession::from_item(&item)
 }
 
+/// Status i autor assetu.
+///
+/// # Errors
+///
+/// [`StoreError::NotFound`] dla nieistniejącego assetu.
+pub async fn get_status(
+    client: &Client,
+    table: &str,
+    asset_id: &str,
+) -> Result<(AssetStatus, String), StoreError> {
+    let output = client
+        .get_item()
+        .table_name(table)
+        .key("pk", AttributeValue::S(asset_pk(asset_id)))
+        .projection_expression("#status, uploaderId")
+        .expression_attribute_names("#status", "status")
+        .consistent_read(true)
+        .send()
+        .await
+        .map_err(|error| StoreError::Dynamo(format!("{error:?}")))?;
+    let item = output.item.ok_or(StoreError::NotFound)?;
+    Ok((
+        parse_status(&string(&item, "status")?)?,
+        string(&item, "uploaderId")?,
+    ))
+}
+
 /// Warunkowa zmiana statusu. `extra` to dodatkowe atrybuty ustawiane razem
 /// ze statusem (np. powód odrzucenia).
 ///

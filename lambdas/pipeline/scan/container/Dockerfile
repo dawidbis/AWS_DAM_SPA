@@ -1,0 +1,24 @@
+# Obraz Lambdy ze skanerem: ClamAV + binarka `scan` w Ruście, która sama
+# implementuje Lambda Runtime API (lambda_runtime), więc nie potrzebuje
+# obrazu bazowego AWS. Architektura x86_64: buduje się natywnie na runnerach
+# GitHub bez emulacji (ADR 0014).
+FROM debian:bookworm-slim
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates clamav clamav-daemon \
+ && rm -rf /var/lib/apt/lists/* \
+ && mkdir -p /var/lib/clamav
+
+COPY freshclam.conf /etc/clamav/freshclam.conf
+# freshclam zapisuje bazę z uprawnieniami 644 w katalogu 755, więc użytkownik
+# nobody może ją czytać bez dodatkowego chmod.
+RUN freshclam --config-file=/etc/clamav/freshclam.conf \
+ && ls -la /var/lib/clamav
+
+COPY clamd.conf /etc/clamav/clamd.conf
+COPY bootstrap /usr/local/bin/bootstrap
+
+ENV CLAMD_CONFIG=/etc/clamav/clamd.conf
+# Skaner nie potrzebuje roota: czyta bazę, pisze tylko do /tmp.
+USER nobody
+ENTRYPOINT ["/usr/local/bin/bootstrap"]

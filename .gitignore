@@ -27,3 +27,4 @@ node_modules/
 # Lokalne sekrety
 .env
 .env.*
+/lambdas/pipeline/scan/container/bootstrap

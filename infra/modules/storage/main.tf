@@ -130,6 +130,13 @@ resource "aws_s3_bucket_lifecycle_configuration" "this" {
   depends_on = [aws_s3_bucket_versioning.this]
 }
 
+# Zdarzenia „Object Created” z kwarantanny trafiają do EventBridge, skąd
+# reguła kieruje je do kolejki skanowania (moduł scanner).
+resource "aws_s3_bucket_notification" "quarantine" {
+  bucket      = aws_s3_bucket.this["quarantine"].id
+  eventbridge = true
+}
+
 # Przeglądarka wysyła części pliku bezpośrednio do kwarantanny (presigned PUT)
 # i musi odczytać ETag każdej części, żeby zakończyć upload multipart.
 resource "aws_s3_bucket_cors_configuration" "quarantine" {
