@@ -67,13 +67,27 @@ init:
 plan: build-lambdas init
     terraform -chdir={{tf_env}} plan
 
-# Build + terraform apply
+# Build + terraform apply + frontend
 deploy: build-lambdas init
     terraform -chdir={{tf_env}} apply
+    TF_DIR={{tf_env}} ./scripts/deploy-frontend.sh
 
 # Usuwa całe środowisko (awaryjny hamulec kosztów). Bootstrap zostaje.
 destroy: init
     terraform -chdir={{tf_env}} destroy
+
+# Build Angulara + upload do S3 + unieważnienie CloudFront
+deploy-frontend: init
+    TF_DIR={{tf_env}} ./scripts/deploy-frontend.sh
+
+# Zapisuje frontend/public/config.json z outputów Terraform (dla `npm start`)
+frontend-config: init
+    terraform -chdir={{tf_env}} output -json frontend_config > frontend/public/config.json
+    @echo "Zapisano frontend/public/config.json"
+
+# Zakłada konto testowe w Cognito, np. `just create-user ja+admin@gmail.com admin`
+create-user email group: init
+    TF_DIR={{tf_env}} ./scripts/create-user.sh {{email}} {{group}}
 
 # Wywołuje wdrożoną funkcję hello-world
 invoke-hello name="Kibic":
