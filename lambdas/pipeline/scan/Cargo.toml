@@ -1,0 +1,28 @@
+[package]
+name = "pipeline-scan"
+description = "Skan antywirusowy ClamAV plików z kwarantanny (obraz kontenera Lambda)"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "scan"
+path = "src/main.rs"
+
+[dependencies]
+shared.workspace = true
+aws-config.workspace = true
+aws-sdk-dynamodb.workspace = true
+aws-sdk-s3.workspace = true
+aws-sdk-sns.workspace = true
+aws_lambda_events.workspace = true
+lambda_runtime.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["fs", "io-util", "net", "process", "rt-multi-thread", "sync", "time"] }
+tracing.workspace = true
+
+[lints]
+workspace = true

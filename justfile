@@ -76,6 +76,10 @@ deploy: build-lambdas init
 destroy: init
     terraform -chdir={{tf_env}} destroy
 
+# Obraz skanera ClamAV do ECR (FORCE_SCANNER_BUILD=true wymusza przebudowę)
+build-scanner:
+    ./scripts/build-scanner.sh
+
 # Build Angulara + upload do S3 + unieważnienie CloudFront
 deploy-frontend: init
     TF_DIR={{tf_env}} ./scripts/deploy-frontend.sh

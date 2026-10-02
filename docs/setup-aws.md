@@ -115,6 +115,14 @@ Gmail dostarcza adresy `ty+cokolwiek@gmail.com` do tej samej skrzynki, więc jed
 
 Lokalny frontend (`npm start`) potrzebuje `frontend/public/config.json`: `just frontend-config`.
 
+## 9. Skanowanie antywirusowe (etap 1)
+
+1. Repo → Settings → Secrets and variables → Actions → **Variables** → `ALERT_EMAIL` = adres na alerty o zainfekowanych plikach.
+2. Po deployu AWS wyśle mail „AWS Notification - Subscription Confirmation” — kliknij **Confirm subscription**, inaczej alerty nie dotrą.
+3. Test EICAR (scenariusz 1): zapisz w pliku tekstowym standardowy ciąg testowy EICAR, nadaj plikowi rozszerzenie `.pdf` i wgraj go jako `+foto`. W ciągu ~1–2 min status assetu w DynamoDB zmieni się na `INFECTED`, plik trafi do bucketu `infected`, a na `ALERT_EMAIL` przyjdzie alert. Zwykłe zdjęcie dostanie `CLEAN_DRAFT` i trafi do `clean`.
+
+Pierwszy skan po deployu jest wolniejszy (cold start: wczytanie bazy sygnatur). Komunikaty, których nie udało się przetworzyć 3 razy, trafiają do kolejki `matchday-dam-dev-scan-dlq`.
+
 ## Hamulec kosztów
 
 ```bash

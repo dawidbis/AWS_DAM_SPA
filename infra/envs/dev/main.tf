@@ -110,6 +110,26 @@ module "data" {
   name_prefix = local.name_prefix
 }
 
+# --- Skanowanie (EventBridge → SQS → ClamAV) ---------------------------------------
+
+module "scanner" {
+  source = "../../modules/scanner"
+
+  name_prefix              = local.name_prefix
+  image_uri                = var.scanner_image_uri
+  permissions_boundary_arn = data.aws_iam_policy.permissions_boundary.arn
+  alert_email              = var.alert_email
+
+  assets_table_name     = module.data.assets_table_name
+  assets_table_arn      = module.data.assets_table_arn
+  quarantine_bucket     = module.storage.bucket_names["quarantine"]
+  quarantine_bucket_arn = module.storage.bucket_arns["quarantine"]
+  clean_bucket          = module.storage.bucket_names["clean"]
+  clean_bucket_arn      = module.storage.bucket_arns["clean"]
+  infected_bucket       = module.storage.bucket_names["infected"]
+  infected_bucket_arn   = module.storage.bucket_arns["infected"]
+}
+
 # --- Upload multipart -----------------------------------------------------------
 # Każda funkcja ma własną rolę i wyłącznie potrzebne uprawnienia (rozdział 10.1).
 # Polityka bucketu kwarantanny dopuszcza zapis tylko tych trzech ról.

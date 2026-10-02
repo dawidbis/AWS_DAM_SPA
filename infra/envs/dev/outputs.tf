@@ -46,3 +46,15 @@ output "storage_buckets" {
 output "assets_table" {
   value = module.data.assets_table_name
 }
+
+output "scanner_repository_name" {
+  value = module.scanner.repository_name
+}
+
+output "scanner_repository_url" {
+  value = module.scanner.repository_url
+}
+
+output "scan_dlq_url" {
+  value = module.scanner.dlq_url
+}

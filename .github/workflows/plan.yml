@@ -18,6 +18,7 @@ concurrency:
 env:
   TF_VERSION: "~1.16.0"
   TF_DIR: infra/envs/dev
+  TF_VAR_alert_email: ${{ vars.ALERT_EMAIL }}
 
 jobs:
   plan:
@@ -52,6 +53,19 @@ jobs:
         with:
           terraform_version: ${{ env.TF_VERSION }}
           terraform_wrapper: false
+
+      # Plan porównuje z aktualnie wdrożonym obrazem skanera (bez budowania).
+      - name: Najnowszy obraz skanera
+        run: |
+          repo=$(aws ecr describe-repositories --repository-names matchday-dam-dev-scanner \
+            --query 'repositories[0].repositoryUri' --output text 2>/dev/null || true)
+          digest=$(aws ecr describe-images --repository-name matchday-dam-dev-scanner \
+            --query 'sort_by(imageDetails,&imagePushedAt)[-1].imageDigest' --output text 2>/dev/null || true)
+          if [[ -n "$repo" && -n "$digest" && "$digest" != "None" ]]; then
+            echo "TF_VAR_scanner_image_uri=$repo@$digest" >> "$GITHUB_ENV"
+          else
+            echo "Brak obrazu skanera w ECR: plan bez Lambdy scan."
+          fi
 
       - name: terraform init
         run: terraform -chdir="$TF_DIR" init -input=false -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
