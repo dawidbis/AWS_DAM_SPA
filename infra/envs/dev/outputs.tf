@@ -42,3 +42,7 @@ output "api_url" {
 output "storage_buckets" {
   value = module.storage.bucket_names
 }
+
+output "assets_table" {
+  value = module.data.assets_table_name
+}

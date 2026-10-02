@@ -3,8 +3,7 @@
 //! Pozwala sprawdzić cały łańcuch: token z SPA → autoryzator JWT API Gateway
 //! → claimy w Lambdzie. Frontend pokazuje wynik na stronie głównej.
 
-use lambda_http::request::RequestContext;
-use lambda_http::{Body, Error, Request, RequestExt, Response, http::StatusCode, service_fn};
+use lambda_http::{Body, Error, Request, Response, http::StatusCode, service_fn};
 use serde_json::json;
 use shared::Caller;
 
@@ -17,11 +16,7 @@ fn json_response(status: StatusCode, body: &serde_json::Value) -> Result<Respons
 }
 
 fn caller(request: &Request) -> Option<Caller> {
-    let RequestContext::ApiGatewayV2(context) = request.request_context() else {
-        return None;
-    };
-    let claims = context.authorizer?.jwt?.claims;
-    Caller::from_claims(&claims).ok()
+    shared::http::caller(request).ok()
 }
 
 #[allow(clippy::unused_async)]
@@ -45,10 +40,12 @@ async fn main() -> Result<(), Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use lambda_http::RequestExt;
     use lambda_http::aws_lambda_events::apigw::{
         ApiGatewayRequestAuthorizer, ApiGatewayRequestAuthorizerJwtDescription,
         ApiGatewayV2httpRequestContext,
     };
+    use lambda_http::request::RequestContext;
     use std::collections::HashMap;
 
     fn request_with_claims(claims: Option<HashMap<String, String>>) -> Request {

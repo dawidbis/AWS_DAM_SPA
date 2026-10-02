@@ -16,7 +16,7 @@ variable "bucket_access" {
   default = {
     quarantine = {
       readers = ["dam-validate", "dam-scan", "dam-cdr", "dam-handle-infected"]
-      writers = ["dam-upload-init", "dam-upload-complete"]
+      writers = ["dam-upload-init", "dam-upload-status", "dam-upload-complete"]
     }
     clean = {
       readers = ["dam-assets-read"]

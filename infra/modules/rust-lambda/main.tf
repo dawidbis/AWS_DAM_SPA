@@ -45,6 +45,23 @@ resource "aws_iam_role_policy_attachment" "basic_execution" {
   policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
+# Uprawnienia funkcji jako polityki customer managed (rozdział 10.2):
+# osobna polityka dam-<name>-<klucz> na każdy wpis w var.policies.
+resource "aws_iam_policy" "this" {
+  for_each = var.policies
+
+  name        = "dam-${var.name}-${each.key}"
+  description = "Uprawnienia funkcji ${var.name} (${each.key})"
+  policy      = each.value
+}
+
+resource "aws_iam_role_policy_attachment" "own" {
+  for_each = var.policies
+
+  role       = aws_iam_role.this.name
+  policy_arn = aws_iam_policy.this[each.key].arn
+}
+
 resource "aws_iam_role_policy_attachment" "extra" {
   for_each = var.policy_arns
 

@@ -98,6 +98,6 @@ resource "aws_lambda_permission" "api" {
   action        = "lambda:InvokeFunction"
   function_name = each.value.function_name
   principal     = "apigateway.amazonaws.com"
-  # Tylko ta trasa tego API może wywołać funkcję.
-  source_arn = "${aws_apigatewayv2_api.this.execution_arn}/*/${replace(each.key, " ", "")}"
+  # Tylko ta trasa tego API może wywołać funkcję ({param} → dowolny segment).
+  source_arn = "${aws_apigatewayv2_api.this.execution_arn}/*/${replace(replace(each.key, " ", ""), "/\\{[^}]+\\}/", "*")}"
 }

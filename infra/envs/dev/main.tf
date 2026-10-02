@@ -102,6 +102,95 @@ module "api_me" {
   permissions_boundary_arn = data.aws_iam_policy.permissions_boundary.arn
 }
 
+# --- Dane ----------------------------------------------------------------------
+
+module "data" {
+  source = "../../modules/data"
+
+  name_prefix = local.name_prefix
+}
+
+# --- Upload multipart -----------------------------------------------------------
+# Każda funkcja ma własną rolę i wyłącznie potrzebne uprawnienia (rozdział 10.1).
+# Polityka bucketu kwarantanny dopuszcza zapis tylko tych trzech ról.
+
+locals {
+  quarantine_arn = module.storage.bucket_arns["quarantine"]
+
+  upload_lambdas = {
+    upload-init     = "POST /uploads: zakłada upload multipart i wystawia presigned URL-e"
+    upload-status   = "GET /uploads/{assetId}: stan uploadu i URL-e do wznowienia"
+    upload-complete = "POST /uploads/{assetId}/complete: weryfikuje rozmiar i kończy upload"
+  }
+}
+
+data "aws_iam_policy_document" "upload_init" {
+  statement {
+    sid       = "CreateMultipartUploadAndPresignParts"
+    actions   = ["s3:PutObject"]
+    resources = ["${local.quarantine_arn}/*"]
+  }
+
+  statement {
+    sid       = "CreateAsset"
+    actions   = ["dynamodb:PutItem"]
+    resources = [module.data.assets_table_arn]
+  }
+}
+
+data "aws_iam_policy_document" "upload_status" {
+  statement {
+    sid       = "ListAndPresignParts"
+    actions   = ["s3:ListMultipartUploadParts", "s3:PutObject"]
+    resources = ["${local.quarantine_arn}/*"]
+  }
+
+  statement {
+    sid       = "ReadAsset"
+    actions   = ["dynamodb:GetItem"]
+    resources = [module.data.assets_table_arn]
+  }
+}
+
+data "aws_iam_policy_document" "upload_complete" {
+  statement {
+    sid       = "CompleteOrAbortUpload"
+    actions   = ["s3:ListMultipartUploadParts", "s3:PutObject", "s3:AbortMultipartUpload"]
+    resources = ["${local.quarantine_arn}/*"]
+  }
+
+  statement {
+    sid       = "ReadAndTransitionAsset"
+    actions   = ["dynamodb:GetItem", "dynamodb:UpdateItem"]
+    resources = [module.data.assets_table_arn]
+  }
+}
+
+module "upload_lambdas" {
+  source   = "../../modules/rust-lambda"
+  for_each = local.upload_lambdas
+
+  name                     = each.key
+  function_name            = "${local.name_prefix}-${each.key}"
+  description              = each.value
+  zip_path                 = "${var.lambda_artifacts_dir}/api-${each.key}/bootstrap.zip"
+  permissions_boundary_arn = data.aws_iam_policy.permissions_boundary.arn
+  memory_size              = 256
+
+  policies = {
+    main = {
+      upload-init     = data.aws_iam_policy_document.upload_init.json
+      upload-status   = data.aws_iam_policy_document.upload_status.json
+      upload-complete = data.aws_iam_policy_document.upload_complete.json
+    }[each.key]
+  }
+
+  environment = {
+    ASSETS_TABLE      = module.data.assets_table_name
+    QUARANTINE_BUCKET = module.storage.bucket_names["quarantine"]
+  }
+}
+
 module "api" {
   source = "../../modules/http-api"
 
@@ -111,6 +200,9 @@ module "api" {
   jwt_audience    = [module.auth.client_id]
 
   routes = {
-    "GET /me" = { function_name = module.api_me.function_name, function_arn = module.api_me.function_arn }
+    "GET /me"                          = { function_name = module.api_me.function_name, function_arn = module.api_me.function_arn }
+    "POST /uploads"                    = { function_name = module.upload_lambdas["upload-init"].function_name, function_arn = module.upload_lambdas["upload-init"].function_arn }
+    "GET /uploads/{assetId}"           = { function_name = module.upload_lambdas["upload-status"].function_name, function_arn = module.upload_lambdas["upload-status"].function_arn }
+    "POST /uploads/{assetId}/complete" = { function_name = module.upload_lambdas["upload-complete"].function_name, function_arn = module.upload_lambdas["upload-complete"].function_arn }
   }
 }

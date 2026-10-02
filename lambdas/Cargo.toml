@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["shared", "hello-world", "api/me"]
+members = ["shared", "hello-world", "api/me", "api/upload-init", "api/upload-status", "api/upload-complete"]
 
 [workspace.package]
 edition = "2024"
@@ -12,10 +12,14 @@ publish = false
 shared = { path = "shared" }
 lambda_runtime = "1.4"
 lambda_http = { version = "1.3", default-features = false, features = ["apigw_http"] }
+aws-config = { version = "1", default-features = false, features = ["behavior-version-latest", "rt-tokio", "default-https-client"] }
+aws-sdk-dynamodb = { version = "1", default-features = false, features = ["rt-tokio", "default-https-client"] }
+aws-sdk-s3 = { version = "1", default-features = false, features = ["rt-tokio", "default-https-client"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
 tokio = { version = "1", features = ["macros"] }
+uuid = { version = "1", features = ["v4"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "json", "env-filter"] }
 
