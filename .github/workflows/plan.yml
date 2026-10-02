@@ -31,6 +31,18 @@ jobs:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/build-lambdas
 
+      # Wypisuje claimy tokenu OIDC (bez podpisu). Pomaga, gdy trust policy
+      # roli odrzuca token (warunek na `sub` musi zgadzać się co do znaku).
+      - name: Claimy tokenu OIDC
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const token = await core.getIDToken('sts.amazonaws.com');
+            const claims = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString());
+            for (const key of ['sub', 'aud', 'repository', 'repository_owner', 'ref', 'event_name']) {
+              core.info(`${key}=${claims[key]}`);
+            }
+
       - uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: ${{ vars.AWS_PLAN_ROLE_ARN }}

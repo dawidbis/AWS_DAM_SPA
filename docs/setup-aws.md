@@ -31,27 +31,36 @@ IAM Identity Center z dostępem do kont wymaga AWS Organizations, a dołączenie
 
 Tworzy: bucket stanu Terraform, dostawcę OIDC GitHub, role `dam-github-plan` i `dam-github-deploy`, permission boundary `dam-permissions-boundary` oraz budżety 5 USD i 20 USD z alertami e-mail.
 
+Wystarczy AWS CloudShell (ikona `>_` w konsoli, region eu-central-1) z doinstalowanym Terraformem, bez lokalnych narzędzi.
+
+Bucket stanu jeszcze nie istnieje, więc pierwsze `apply` robimy ze stanem lokalnym. Zapewnia to plik `backend_override.tf` (jest w `.gitignore`):
+
 ```bash
 cp infra/bootstrap/terraform.tfvars.example infra/bootstrap/terraform.tfvars
-# uzupełnij budget_alert_email (i github_repository, jeśli inne niż dawidbis/AWS_DAM_SPA)
-just bootstrap
+# uzupełnij budget_alert_email; dla innego repozytorium także github_repository,
+# github_owner_id i github_repository_id (ID z GitHub API, patrz komentarze w pliku)
+echo 'terraform {
+  backend "local" {}
+}' > infra/bootstrap/backend_override.tf
+terraform -chdir=infra/bootstrap init
+terraform -chdir=infra/bootstrap apply
 ```
 
-Sprawdź plan przed `yes`. Na końcu Terraform wypisze `github_actions_variables`.
+Sprawdź plan przed `yes` (19 zasobów do utworzenia). Na końcu Terraform wypisze `github_actions_variables`.
 
 ## 4. Przeniesienie stanu bootstrapu do S3
 
-Pierwszy `apply` używa stanu lokalnego (bucket jeszcze nie istniał). Żeby nie zgubić stanu:
+```bash
+BUCKET=$(terraform -chdir=infra/bootstrap output -raw state_bucket)
+rm infra/bootstrap/backend_override.tf
+terraform -chdir=infra/bootstrap init -migrate-state -backend-config="bucket=$BUCKET"
+# na pytanie "Do you want to copy existing state to the new backend?" odpowiedz: yes
+terraform -chdir=infra/bootstrap plan
+# oczekiwany wynik: "No changes."
+rm -f infra/bootstrap/terraform.tfstate infra/bootstrap/terraform.tfstate.backup
+```
 
-1. W `infra/bootstrap/versions.tf` odkomentuj blok `backend "s3"`.
-2. Uruchom:
-
-   ```bash
-   terraform -chdir=infra/bootstrap init -migrate-state \
-     -backend-config="bucket=$(terraform -chdir=infra/bootstrap output -raw state_bucket)"
-   ```
-
-3. Usuń lokalne `infra/bootstrap/terraform.tfstate*` (są w `.gitignore`) i zacommituj zmianę w `versions.tf`.
+Kolejne zmiany w bootstrapie (`just bootstrap`) korzystają już ze stanu w S3.
 
 ## 5. Zmienne w GitHub
 

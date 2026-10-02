@@ -52,8 +52,10 @@ check-infra:
 # --- AWS -------------------------------------------------------------------
 
 # Jednorazowo: bucket stanu, OIDC GitHub, role CI, boundary, budżety (konto admina)
+# (nowe konto: najpierw docs/setup-aws.md, kroki 3-4)
 bootstrap:
-    terraform -chdir=infra/bootstrap init
+    bucket="${TF_STATE_BUCKET:-matchday-dam-tfstate-$(aws sts get-caller-identity --query Account --output text)}"; \
+    terraform -chdir=infra/bootstrap init -input=false -backend-config="bucket=${bucket}"
     terraform -chdir=infra/bootstrap apply
 
 # Inicjalizuje backend środowiska (bucket = $TF_STATE_BUCKET albo wyliczony z ID konta)

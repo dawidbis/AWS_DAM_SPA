@@ -21,6 +21,18 @@ variable "github_repository" {
   }
 }
 
+variable "github_owner_id" {
+  description = "Numeryczne ID właściciela repozytorium (claim repository_owner_id)."
+  type        = string
+  default     = "147335334"
+}
+
+variable "github_repository_id" {
+  description = "Numeryczne ID repozytorium (claim repository_id)."
+  type        = string
+  default     = "1400562492"
+}
+
 variable "deploy_branch" {
   description = "Gałąź, z której GitHub Actions może przyjąć rolę deployu."
   type        = string

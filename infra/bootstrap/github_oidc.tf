@@ -7,6 +7,14 @@ locals {
   github_oidc_host = "token.actions.githubusercontent.com"
   account_id       = data.aws_caller_identity.current.account_id
   iam_prefix       = "arn:${data.aws_partition.current.partition}:iam::${local.account_id}"
+
+  # GitHub wystawia `sub` z niezmiennymi ID właściciela i repozytorium:
+  #   repo:<owner>@<owner_id>/<repo>@<repo_id>:<kontekst>
+  # Dzięki ID token nie pasuje do repozytorium, które ktoś założy pod tą samą
+  # nazwą po usunięciu lub przemianowaniu oryginału. Faktyczny `sub` wypisuje
+  # krok „Claimy tokenu OIDC" w .github/workflows/plan.yml.
+  github_repo_parts = split("/", var.github_repository)
+  github_sub_prefix = "repo:${local.github_repo_parts[0]}@${var.github_owner_id}/${local.github_repo_parts[1]}@${var.github_repository_id}"
 }
 
 resource "aws_iam_openid_connect_provider" "github" {
@@ -37,7 +45,7 @@ data "aws_iam_policy_document" "github_plan_trust" {
     condition {
       test     = "StringEquals"
       variable = "${local.github_oidc_host}:sub"
-      values   = ["repo:${var.github_repository}:pull_request"]
+      values   = ["${local.github_sub_prefix}:pull_request"]
     }
   }
 }
@@ -98,7 +106,7 @@ data "aws_iam_policy_document" "github_deploy_trust" {
     condition {
       test     = "StringEquals"
       variable = "${local.github_oidc_host}:sub"
-      values   = ["repo:${var.github_repository}:ref:refs/heads/${var.deploy_branch}"]
+      values   = ["${local.github_sub_prefix}:ref:refs/heads/${var.deploy_branch}"]
     }
   }
 }
