@@ -34,3 +34,11 @@ output "frontend_config" {
   description = "Zawartość config.json dla lokalnego `ng serve` (just frontend-config)."
   value       = local.frontend_config
 }
+
+output "api_url" {
+  value = module.api.url
+}
+
+output "storage_buckets" {
+  value = module.storage.bucket_names
+}

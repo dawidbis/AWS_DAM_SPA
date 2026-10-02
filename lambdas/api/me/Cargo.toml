@@ -1,0 +1,17 @@
+[package]
+name = "api-me"
+description = "GET /me: tożsamość i grupy wywołującego widziane przez backend"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+shared.workspace = true
+lambda_http.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+
+[lints]
+workspace = true
