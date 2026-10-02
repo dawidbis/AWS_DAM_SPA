@@ -8,7 +8,11 @@ locals {
     authority  = module.auth.issuer_url
     authDomain = module.auth.domain_url
     clientId   = module.auth.client_id
+    apiUrl     = module.api.url
   }
+
+  # Originy SPA: wdrożony frontend i lokalny `ng serve`.
+  spa_origins = [module.frontend.url, "http://localhost:4200"]
 }
 
 # Boundary tworzone w infra/bootstrap. Rola deployu może zakładać role
@@ -73,5 +77,40 @@ module "auth" {
     staff       = { description = "B: marketing, redakcja, social media", precedence = 2 }
     contributor = { description = "C: fotografowie meczowi, agencje", precedence = 3 }
     viewer      = { description = "D: sponsorzy, partnerzy, media", precedence = 4 }
+  }
+}
+
+# --- Pliki (kwarantanna, clean, infected) ------------------------------------
+
+module "storage" {
+  source = "../../modules/storage"
+
+  name_prefix            = local.name_prefix
+  upload_allowed_origins = local.spa_origins
+  log_bucket_id          = module.access_logs.bucket_id
+}
+
+# --- API ---------------------------------------------------------------------
+
+module "api_me" {
+  source = "../../modules/rust-lambda"
+
+  name                     = "api-me"
+  function_name            = "${local.name_prefix}-api-me"
+  description              = "GET /me: tożsamość i grupy wywołującego"
+  zip_path                 = "${var.lambda_artifacts_dir}/api-me/bootstrap.zip"
+  permissions_boundary_arn = data.aws_iam_policy.permissions_boundary.arn
+}
+
+module "api" {
+  source = "../../modules/http-api"
+
+  name            = local.name_prefix
+  allowed_origins = local.spa_origins
+  jwt_issuer      = module.auth.issuer_url
+  jwt_audience    = [module.auth.client_id]
+
+  routes = {
+    "GET /me" = { function_name = module.api_me.function_name, function_arn = module.api_me.function_arn }
   }
 }
