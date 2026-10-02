@@ -17,10 +17,9 @@ latest=$(aws ecr describe-images --repository-name "$REPO_NAME" \
   --query 'sort_by(imageDetails,&imagePushedAt)[-1].imageDigest' --output text 2>/dev/null || echo None)
 
 changed=true
-if git rev-parse -q --verify HEAD~1 > /dev/null; then
-  if git diff --quiet HEAD~1 HEAD -- lambdas/pipeline/scan lambdas/shared lambdas/Cargo.lock; then
-    changed=false
-  fi
+if git rev-parse -q --verify HEAD~1 > /dev/null \
+  && git diff --quiet HEAD~1 HEAD -- lambdas/pipeline/scan lambdas/shared lambdas/Cargo.lock; then
+  changed=false
 fi
 
 publish() {

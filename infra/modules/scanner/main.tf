@@ -141,8 +141,11 @@ resource "aws_sqs_queue_policy" "scan" {
 
 # --- Alerty --------------------------------------------------------------------
 
-resource "aws_sns_topic" "alerts" {
-  #checkov:skip=CKV_AWS_26:Alert zawiera tylko ID assetu i nazwę sygnatury; KMS CMK to dodatkowy koszt
+# Bez SSE: alert zawiera tylko ID assetu, sub uploadera i nazwę sygnatury
+# (bez treści pliku). Szyfrowanie KMS wymagałoby uprawnień kms w permission
+# boundary; do rozważenia w etapie 2.
+resource "aws_sns_topic" "alerts" { # NOSONAR
+  #checkov:skip=CKV_AWS_26:Alert zawiera tylko ID assetu i nazwę sygnatury; KMS wymaga zmiany boundary
   name = "${var.name_prefix}-security-alerts"
 }
 

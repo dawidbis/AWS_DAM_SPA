@@ -5,7 +5,7 @@
 FROM debian:bookworm-slim
 
 RUN apt-get update \
- && apt-get install -y --no-install-recommends clamav clamav-daemon ca-certificates \
+ && apt-get install -y --no-install-recommends ca-certificates clamav clamav-daemon \
  && rm -rf /var/lib/apt/lists/* \
  && mkdir -p /var/lib/clamav
 
