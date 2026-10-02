@@ -29,6 +29,14 @@ module "hello_world" {
 
 data "aws_caller_identity" "current" {}
 
+# --- Logi dostępu (S3, CloudFront) -----------------------------------------
+
+module "access_logs" {
+  source = "../../modules/access-logs"
+
+  bucket_name = "${local.name_prefix}-access-logs-${data.aws_caller_identity.current.account_id}"
+}
+
 # --- Frontend (S3 + CloudFront) ---------------------------------------------
 
 module "frontend" {
@@ -37,7 +45,9 @@ module "frontend" {
   name        = local.name_prefix
   bucket_name = "${local.name_prefix}-frontend-${data.aws_caller_identity.current.account_id}"
 
-  runtime_config = local.frontend_config
+  runtime_config         = local.frontend_config
+  log_bucket_id          = module.access_logs.bucket_id
+  log_bucket_domain_name = module.access_logs.bucket_domain_name
 }
 
 # --- Uwierzytelnianie (Cognito) ---------------------------------------------

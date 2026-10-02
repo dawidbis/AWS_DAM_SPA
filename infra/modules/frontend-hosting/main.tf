@@ -18,6 +18,12 @@ resource "aws_s3_bucket" "site" {
   force_destroy = true # zawartość to artefakt buildu, odtwarzany z CI
 }
 
+resource "aws_s3_bucket_logging" "site" {
+  bucket        = aws_s3_bucket.site.id
+  target_bucket = var.log_bucket_id
+  target_prefix = "s3/${var.bucket_name}/"
+}
+
 resource "aws_s3_bucket_ownership_controls" "site" {
   bucket = aws_s3_bucket.site.id
 
@@ -119,7 +125,6 @@ resource "aws_cloudfront_distribution" "site" {
   #checkov:skip=CKV2_AWS_47:Jak wyżej, brak WAF w dev
   #checkov:skip=CKV2_AWS_42:Domyślna domena *.cloudfront.net bez własnej domeny i certyfikatu ACM
   #checkov:skip=CKV_AWS_174:Przy domyślnym certyfikacie CloudFront nie da się ustawić minimum_protocol_version
-  #checkov:skip=CKV_AWS_86:Logi dostępu CloudFront wymagają osobnego bucketu; w dev zbędny koszt
   #checkov:skip=CKV_AWS_310:Origin failover wymaga drugiego bucketu w innym regionie (jeden region, rozdział 7.1)
   #checkov:skip=CKV_AWS_374:Brak ograniczeń geograficznych: sponsorzy i media z różnych krajów
   enabled             = true
@@ -156,6 +161,12 @@ resource "aws_cloudfront_distribution" "site" {
       response_page_path    = "/index.html"
       error_caching_min_ttl = 0
     }
+  }
+
+  logging_config {
+    bucket          = var.log_bucket_domain_name
+    prefix          = "cloudfront/${var.name}/"
+    include_cookies = false
   }
 
   restrictions {

@@ -48,7 +48,7 @@ justfile         build, check, bootstrap, plan, deploy, destroy
 just check            # to samo co CI: fmt, clippy, testy, ng lint/test, terraform validate, tflint, checkov
 just build-lambdas    # lambdas/target/lambda/<crate>/bootstrap.zip (arm64)
 just frontend-config                # config.json z outputów Terraform (Cognito)
-cd frontend && npm ci && npm start   # http://localhost:4200
+cd frontend && npm ci --ignore-scripts && npm start   # http://localhost:4200
 ```
 
 Pierwsze wdrożenie na AWS (bootstrap konta, zmienne GitHub, deploy): [`docs/setup-aws.md`](docs/setup-aws.md).

@@ -19,7 +19,7 @@ build-lambdas:
 
 # Buduje aplikację Angular do frontend/dist/
 build-frontend:
-    cd frontend && npm ci && npx ng build
+    cd frontend && npm ci --ignore-scripts && npm run build
 
 # --- jakość ------------------------------------------------------------------
 
@@ -27,7 +27,7 @@ build-frontend:
 fmt:
     cd lambdas && cargo fmt --all
     terraform fmt -recursive infra
-    cd frontend && npx prettier --write "src/**/*.{ts,html,css}"
+    cd frontend && npm exec --no -- prettier --write "src/**/*.{ts,html,css}"
 
 # To samo, co sprawdza CI
 check: check-rust check-frontend check-infra
@@ -38,7 +38,7 @@ check-rust:
     cd lambdas && cargo test --locked
 
 check-frontend:
-    cd frontend && npm ci && npx ng lint && npx ng test --watch=false
+    cd frontend && npm ci --ignore-scripts && npm run lint && npm test -- --watch=false
 
 check-infra:
     terraform fmt -check -recursive infra

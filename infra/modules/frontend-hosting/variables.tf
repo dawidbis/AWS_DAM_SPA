@@ -13,3 +13,13 @@ variable "runtime_config" {
   type        = any
   default     = {}
 }
+
+variable "log_bucket_id" {
+  description = "Bucket na logi serwerowe S3 (moduł access-logs)."
+  type        = string
+}
+
+variable "log_bucket_domain_name" {
+  description = "Domena bucketu na standardowe logi CloudFront (moduł access-logs)."
+  type        = string
+}

@@ -9,7 +9,10 @@ DIST="frontend/dist/matchday-dam/browser"
 bucket=$(terraform -chdir="$TF_DIR" output -raw frontend_bucket)
 distribution=$(terraform -chdir="$TF_DIR" output -raw frontend_distribution_id)
 
-(cd frontend && npm ci && npx ng build)
+# --ignore-scripts: skrypty instalacyjne pakietów nie są potrzebne do buildu,
+# a ich uruchamianie to wektor ataku na łańcuch dostaw. `npm run` używa
+# lokalnego Angular CLI z package-lock (npx mógłby pobrać pakiet w locie).
+(cd frontend && npm ci --ignore-scripts && npm run build)
 
 # Pliki JS/CSS mają hash w nazwie, więc mogą być cache'owane bezterminowo.
 # Bez --delete: przeglądarka ze starym index.html dalej znajdzie swoje chunki.
