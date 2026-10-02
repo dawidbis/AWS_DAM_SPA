@@ -36,7 +36,9 @@ locals {
   }
 }
 
-resource "aws_s3_bucket" "this" {
+# Logi dostępu są włączone dla każdego bucketu w aws_s3_bucket_logging.this
+# (for_each po tych samych bucketach); Sonar nie łączy zasobów z for_each.
+resource "aws_s3_bucket" "this" { # NOSONAR
   for_each = local.buckets
 
   bucket        = "${var.name_prefix}-${each.key}-${data.aws_caller_identity.current.account_id}"

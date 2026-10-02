@@ -134,8 +134,8 @@ mod tests {
     #[test]
     fn ignores_unknown_groups() {
         assert_eq!(parse_groups("[root Admin admin]"), vec![UserGroup::Admin]);
-        assert!(parse_groups("").is_empty());
-        assert!(parse_groups("[]").is_empty());
+        assert_eq!(parse_groups(""), Vec::<UserGroup>::new());
+        assert_eq!(parse_groups("[]"), Vec::<UserGroup>::new());
     }
 
     #[test]
@@ -164,7 +164,7 @@ mod tests {
     #[test]
     fn caller_without_groups_has_no_access() {
         let caller = Caller::from_claims(&claims(&[("sub", "abc")])).unwrap();
-        assert!(caller.groups.is_empty());
+        assert_eq!(caller.groups, Vec::<UserGroup>::new());
         assert!(!caller.has_any_group(&[UserGroup::Viewer]));
     }
 
