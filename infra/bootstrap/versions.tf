@@ -9,15 +9,16 @@ terraform {
     }
   }
 
-  # Pierwsze `apply` wykonujemy z lokalnym stanem (bucket jeszcze nie istnieje).
-  # Następnie stan bootstrapu przenosimy do utworzonego bucketu, patrz
-  # docs/setup-aws.md, krok 4.
-  # backend "s3" {
-  #   key          = "bootstrap/terraform.tfstate"
-  #   region       = "eu-central-1"
-  #   use_lockfile = true
-  #   encrypt      = true
-  # }
+  # Stan bootstrapu leży w buckecie, który ten stos tworzy. Na nowym koncie
+  # pierwsze `apply` robimy ze stanem lokalnym (backend_override.tf), potem
+  # migrujemy go tutaj. Patrz docs/setup-aws.md, kroki 3-4.
+  # Bucket: terraform init -backend-config="bucket=<state_bucket>"
+  backend "s3" {
+    key          = "bootstrap/terraform.tfstate"
+    region       = "eu-central-1"
+    use_lockfile = true
+    encrypt      = true
+  }
 }
 
 provider "aws" {
