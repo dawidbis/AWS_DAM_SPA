@@ -34,7 +34,7 @@ jobs:
       # Wypisuje claimy tokenu OIDC (bez podpisu). Pomaga, gdy trust policy
       # roli odrzuca token (warunek na `sub` musi zgadzać się co do znaku).
       - name: Claimy tokenu OIDC
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const token = await core.getIDToken('sts.amazonaws.com');
@@ -71,7 +71,7 @@ jobs:
 
       - name: Komentarz w PR
         if: always() && steps.plan.outputs.exitcode != ''
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           EXIT_CODE: ${{ steps.plan.outputs.exitcode }}
         with:
