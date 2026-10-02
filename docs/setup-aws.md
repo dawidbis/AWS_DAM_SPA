@@ -99,6 +99,22 @@ just invoke-hello Kibic   # {"message":"Hello, Kibic!","version":"0.1.0"}
 
 **Etap 0 jest gotowy**, gdy merge do `main` sam wdraża funkcję w Ruście, a smoke test w Actions przechodzi.
 
+## 8. Konta testowe (etap 1)
+
+Samodzielna rejestracja jest wyłączona, konta zakłada administrator. Po deployu z Cognito (CloudShell lub lokalnie, jako admin):
+
+```bash
+terraform -chdir=infra/envs/dev init -backend-config="bucket=<TF_STATE_BUCKET>"
+./scripts/create-user.sh ty+admin@gmail.com admin
+./scripts/create-user.sh ty+staff@gmail.com staff
+./scripts/create-user.sh ty+foto@gmail.com contributor
+./scripts/create-user.sh ty+sponsor@gmail.com viewer
+```
+
+Gmail dostarcza adresy `ty+cokolwiek@gmail.com` do tej samej skrzynki, więc jedna skrzynka wystarczy na cztery konta. Każde dostaje mail z hasłem tymczasowym; przy pierwszym logowaniu ustawiasz własne. Adres aplikacji: output `frontend_url`.
+
+Lokalny frontend (`npm start`) potrzebuje `frontend/public/config.json`: `just frontend-config`.
+
 ## Hamulec kosztów
 
 ```bash
