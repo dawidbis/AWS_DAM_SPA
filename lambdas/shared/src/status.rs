@@ -65,7 +65,9 @@ impl AssetStatus {
             Self::Uploading => &[],
             Self::Quarantined => &[Self::Uploading],
             Self::Scanning => &[Self::Quarantined, Self::ScanFailed],
-            Self::Rejected | Self::Infected | Self::ScanFailed | Self::CleanDraft => &[Self::Scanning],
+            // Odrzucenie już przy uploadzie: rozmiar niezgodny z deklaracją.
+            Self::Rejected => &[Self::Uploading, Self::Scanning],
+            Self::Infected | Self::ScanFailed | Self::CleanDraft => &[Self::Scanning],
             Self::Published => &[Self::CleanDraft, Self::Archived],
             Self::Archived => &[Self::Published],
         }
@@ -138,6 +140,13 @@ mod tests {
             .filter(|next| ScanFailed.can_transition_to(*next))
             .collect();
         assert_eq!(allowed, vec![Scanning]);
+    }
+
+    #[test]
+    fn upload_can_be_rejected_before_scanning() {
+        assert!(Uploading.can_transition_to(Rejected));
+        assert!(!Uploading.can_transition_to(CleanDraft));
+        assert!(!Uploading.can_transition_to(Scanning));
     }
 
     #[test]

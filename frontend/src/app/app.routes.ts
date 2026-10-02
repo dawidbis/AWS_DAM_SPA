@@ -4,6 +4,7 @@ import { AuthCallback } from './core/auth/auth-callback';
 import { requireGroups } from './core/auth/require-groups.guard';
 import { HomePage } from './features/pages/home-page';
 import { PlaceholderPage } from './features/pages/placeholder-page';
+import { UploadPage } from './features/upload/upload-page';
 
 export const routes: Routes = [
   { path: '', component: HomePage, title: 'Matchday DAM' },
@@ -17,10 +18,9 @@ export const routes: Routes = [
   },
   {
     path: 'upload',
-    component: PlaceholderPage,
+    component: UploadPage,
     canActivate: [requireGroups('admin', 'contributor')],
     title: 'Upload',
-    data: { title: 'Upload', description: 'Wgrywanie plików do kwarantanny. Powstaje w etapie 1.' },
   },
   {
     path: 'my-submissions',

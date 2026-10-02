@@ -28,6 +28,12 @@ variable "permissions_boundary_arn" {
   type        = string
 }
 
+variable "policies" {
+  description = "Dokumenty polityk IAM (JSON) tworzonych i przypinanych do roli funkcji: klucz => dokument."
+  type        = map(string)
+  default     = {}
+}
+
 variable "policy_arns" {
   description = "Dodatkowe polityki customer managed przypinane do roli funkcji."
   type        = map(string)
