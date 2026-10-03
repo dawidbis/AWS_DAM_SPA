@@ -127,6 +127,24 @@ resource "aws_s3_bucket_lifecycle_configuration" "this" {
     }
   }
 
+  # Wersje po CDR, których pipeline nie sfinalizował (np. przerwane wykonanie).
+  dynamic "rule" {
+    for_each = each.key == "clean" ? [1] : []
+
+    content {
+      id     = "staging-cleanup"
+      status = "Enabled"
+
+      filter {
+        prefix = "staging/"
+      }
+
+      expiration {
+        days = 1
+      }
+    }
+  }
+
   depends_on = [aws_s3_bucket_versioning.this]
 }
 

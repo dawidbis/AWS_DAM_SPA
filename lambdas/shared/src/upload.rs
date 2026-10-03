@@ -6,8 +6,9 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Limit rozmiaru pliku w MVP (rozdział 3.4).
-pub const MAX_UPLOAD_BYTES: u64 = 1024 * 1024 * 1024;
+/// Limit rozmiaru pliku: obrazy do 200 MB, bo CDR dekoduje je w pamięci
+/// Lambdy (rozdział 3.4 przewiduje do 1 GB; większe pliki to ścieżka Fargate).
+pub const MAX_UPLOAD_BYTES: u64 = 200 * 1024 * 1024;
 
 /// Minimalny rozmiar części multipart w S3 (poza ostatnią).
 pub const MIN_PART_BYTES: u64 = 5 * 1024 * 1024;
@@ -22,9 +23,10 @@ pub const MAX_PARTS: u64 = 10_000;
 pub const MAX_TITLE_CHARS: usize = 120;
 pub const MAX_FILENAME_CHARS: usize = 200;
 
-/// Typy, które można zadeklarować w MVP: obrazy i PDF (rozdział 14).
+/// Typy, które można zadeklarować: obrazy, dla których pipeline ma CDR
+/// (rozdział 7.2: do galerii trafia tylko zrekonstruowana wersja). PDF,
 /// SVG, HTML, archiwa i pliki wykonywalne są celowo poza listą (rozdział 8).
-pub const ALLOWED_CONTENT_TYPES: &[&str] = &["image/jpeg", "image/png", "image/webp", "application/pdf"];
+pub const ALLOWED_CONTENT_TYPES: &[&str] = &["image/jpeg", "image/png", "image/webp"];
 
 /// Żądanie rozpoczęcia uploadu (POST /uploads).
 #[derive(Debug, Clone, Deserialize)]

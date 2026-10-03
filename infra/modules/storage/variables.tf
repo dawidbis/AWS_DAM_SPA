@@ -14,14 +14,14 @@ variable "bucket_access" {
     writers = list(string)
   }))
   default = {
-    # dam-finalize-clean czyta oryginał z kwarantanny do czasu kroku CDR;
-    # potem będzie przenosić zrekonstruowaną wersję z clean/staging.
     quarantine = {
-      readers = ["dam-validate", "dam-scan", "dam-cdr", "dam-handle-infected", "dam-finalize-clean"]
+      readers = ["dam-validate", "dam-scan", "dam-cdr", "dam-handle-infected"]
       writers = ["dam-upload-init", "dam-upload-status", "dam-upload-complete"]
     }
+    # dam-finalize-clean kopiuje wersję po CDR z clean/staging/ do clean/<id>
+    # (polityka IAM ogranicza jej odczyt do staging/*).
     clean = {
-      readers = ["dam-assets-read"]
+      readers = ["dam-assets-read", "dam-finalize-clean"]
       writers = ["dam-finalize-clean", "dam-cdr"]
     }
     infected = {

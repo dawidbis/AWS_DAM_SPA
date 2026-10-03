@@ -32,16 +32,97 @@ pub enum ScanOutcome {
     },
 }
 
-/// Wejście kroku pipeline'u: ID assetu i (po skanie) jego wynik.
+/// Limity obrazów sprawdzane przed pełnym dekodowaniem (bomby
+/// dekompresyjne, scenariusz 6) i egzekwowane ponownie przy dekodowaniu.
+pub mod limits {
+    /// Największy plik obrazu, który pipeline dekoduje w pamięci Lambdy
+    /// (ten sam limit sprawdza `upload-init`).
+    pub const MAX_IMAGE_BYTES: u64 = crate::upload::MAX_UPLOAD_BYTES;
+    /// Najdłuższy bok obrazu w pikselach.
+    pub const MAX_DIMENSION: u32 = 20_000;
+    /// Największa liczba pikseli (100 MP ≈ 400 MB jako RGBA).
+    pub const MAX_PIXELS: u64 = 100_000_000;
+}
+
+/// Wynik walidacji typu i wymiarów (wyjście Lambdy `validate`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(
+    tag = "result",
+    rename_all = "SCREAMING_SNAKE_CASE",
+    rename_all_fields = "camelCase"
+)]
+pub enum ValidationOutcome {
+    Valid {
+        /// Typ ustalony z magic bytes, nie z deklaracji klienta.
+        detected_type: String,
+        width: u32,
+        height: u32,
+        size_bytes: u64,
+    },
+    Rejected {
+        reason: String,
+    },
+}
+
+/// Pola EXIF przepuszczane z oryginału (rozdział 3.3: whitelista). Zapisywane
+/// jako metadane assetu po sanityzacji, nie osadzane z powrotem w pliku.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PreservedMetadata {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub artist: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub copyright: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub taken_at: Option<String>,
+}
+
+/// Wynik rekonstrukcji treści (wyjście Lambdy `cdr`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(
+    tag = "result",
+    rename_all = "SCREAMING_SNAKE_CASE",
+    rename_all_fields = "camelCase"
+)]
+pub enum DisarmOutcome {
+    /// Zrekonstruowany plik leży w `clean` pod `staging/<assetId>`.
+    Clean {
+        size_bytes: u64,
+        sha256: String,
+        metadata: PreservedMetadata,
+    },
+    /// Obrazu nie da się zdekodować i zakodować ponownie.
+    Rejected { reason: String },
+}
+
+/// Klucz zrekonstruowanego pliku w `clean` przed finalizacją.
+#[must_use]
+pub fn staging_key(asset_id: &str) -> String {
+    format!("staging/{asset_id}")
+}
+
+/// Wejście kroku pipeline'u: ID assetu i wyniki poprzednich kroków.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StepInput {
     pub asset_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scan: Option<ScanOutcome>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub validation: Option<ValidationOutcome>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub disarm: Option<DisarmOutcome>,
 }
 
 impl StepInput {
+    #[must_use]
+    pub fn new(asset_id: impl Into<String>) -> Self {
+        Self {
+            asset_id: asset_id.into(),
+            ..Self::default()
+        }
+    }
+
     /// ID assetu po sprawdzeniu formatu. Wejście pochodzi z maszyny stanów,
     /// ale klucz S3 budujemy tylko z poprawnego UUID.
     ///
@@ -83,18 +164,25 @@ pub fn scan_attributes(
     ]
 }
 
-/// Przenosi obiekt między bucketami (kopia + usunięcie źródła), idempotentnie:
-/// gdy źródła już nie ma, a cel istnieje, poprzednia próba się udała.
+/// Obiekt w S3: bucket i klucz.
+#[derive(Debug, Clone, Copy)]
+pub struct Location<'a> {
+    pub bucket: &'a str,
+    pub key: &'a str,
+}
+
+/// Przenosi obiekt (kopia + usunięcie źródła), idempotentnie: gdy źródła już
+/// nie ma, a cel istnieje, poprzednia próba się udała.
 ///
 /// # Errors
 ///
 /// Błąd S3 albo brak obiektu zarówno w źródle, jak i w celu.
-pub async fn move_object(s3: &Client, from_bucket: &str, to_bucket: &str, key: &str) -> Result<(), String> {
+pub async fn move_object(s3: &Client, from: Location<'_>, to: Location<'_>) -> Result<(), String> {
     let copied = s3
         .copy_object()
-        .copy_source(format!("{from_bucket}/{key}"))
-        .bucket(to_bucket)
-        .key(key)
+        .copy_source(format!("{}/{}", from.bucket, from.key))
+        .bucket(to.bucket)
+        .key(to.key)
         .metadata_directive(MetadataDirective::Copy)
         .send()
         .await;
@@ -102,18 +190,27 @@ pub async fn move_object(s3: &Client, from_bucket: &str, to_bucket: &str, key: &
         let missing_source = error
             .as_service_error()
             .is_some_and(|e| e.meta().code() == Some("NoSuchKey"));
-        if !(missing_source && object_exists(s3, to_bucket, key).await?) {
-            return Err(format!("kopiowanie {from_bucket} -> {to_bucket}: {error:?}"));
+        if !(missing_source && object_exists(s3, to.bucket, to.key).await?) {
+            return Err(format!("kopiowanie {} -> {}: {error:?}", from.bucket, to.bucket));
         }
-        tracing::info!(key, to_bucket, "object already moved");
+        tracing::info!(key = to.key, bucket = to.bucket, "object already moved");
     }
+    delete_object(s3, from).await
+}
+
+/// Usuwa obiekt (w S3 usunięcie nieistniejącego klucza też się udaje).
+///
+/// # Errors
+///
+/// Błąd S3.
+pub async fn delete_object(s3: &Client, at: Location<'_>) -> Result<(), String> {
     s3.delete_object()
-        .bucket(from_bucket)
-        .key(key)
+        .bucket(at.bucket)
+        .key(at.key)
         .send()
         .await
-        .map_err(|e| format!("usunięcie z {from_bucket}: {e:?}"))?;
-    Ok(())
+        .map(|_| ())
+        .map_err(|e| format!("usunięcie z {}: {e:?}", at.bucket))
 }
 
 /// Czy obiekt istnieje. `ListObjectsV2` zamiast `HeadObject`: polityki
@@ -170,11 +267,30 @@ mod tests {
 
     #[test]
     fn rejects_asset_ids_that_are_not_uuids() {
-        let input = StepInput {
-            asset_id: "../clean/x".to_owned(),
-            scan: None,
-        };
+        let input = StepInput::new("../clean/x");
         assert!(input.checked_asset_id().is_err());
+    }
+
+    #[test]
+    fn validation_and_disarm_match_state_machine_contract() {
+        let valid = ValidationOutcome::Valid {
+            detected_type: "image/jpeg".to_owned(),
+            width: 10,
+            height: 20,
+            size_bytes: 300,
+        };
+        assert_eq!(
+            serde_json::to_value(&valid).unwrap(),
+            serde_json::json!({ "result": "VALID", "detectedType": "image/jpeg", "width": 10, "height": 20, "sizeBytes": 300 })
+        );
+        let rejected: DisarmOutcome = serde_json::from_str(r#"{"result":"REJECTED","reason":"x"}"#).unwrap();
+        assert_eq!(
+            rejected,
+            DisarmOutcome::Rejected {
+                reason: "x".to_owned()
+            }
+        );
+        assert_eq!(staging_key(ID), format!("staging/{ID}"));
     }
 
     #[test]

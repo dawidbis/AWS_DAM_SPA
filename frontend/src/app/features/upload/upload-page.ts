@@ -12,8 +12,8 @@ import { ACCEPTED_TYPES, UploadService } from '../../core/upload/upload.service'
       <div class="card-body gap-4">
         <h2 class="card-title">Upload</h2>
         <p class="text-sm opacity-80">
-          Zdjęcia JPEG, PNG, WebP lub PDF do 1 GB. Plik trafia do kwarantanny i jest sprawdzany
-          przed publikacją. Przerwany upload wznowisz, wybierając ten sam plik ponownie.
+          Zdjęcia JPEG, PNG lub WebP do 200 MB. Plik trafia do kwarantanny i jest sprawdzany przed
+          publikacją. Przerwany upload wznowisz, wybierając ten sam plik ponownie.
         </p>
 
         <label class="form-control">

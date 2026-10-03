@@ -32,8 +32,8 @@ const IDLE: UploadState = {
 const CONCURRENCY = 4;
 
 /** Typy, które przyjmuje backend (walidacja tu to tylko UX, rozdział 3.3). */
-export const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
-export const MAX_FILE_BYTES = 1024 * 1024 * 1024;
+export const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+export const MAX_FILE_BYTES = 200 * 1024 * 1024;
 
 /**
  * Orkiestracja uploadu multipart: POST /uploads → części z Web Workera →
@@ -53,13 +53,13 @@ export class UploadService {
 
   validate(file: File): string | null {
     if (!ACCEPTED_TYPES.includes(file.type)) {
-      return 'Dozwolone są tylko zdjęcia JPEG, PNG, WebP i pliki PDF.';
+      return 'Dozwolone są tylko zdjęcia JPEG, PNG i WebP.';
     }
     if (file.size === 0) {
       return 'Plik jest pusty.';
     }
     if (file.size > MAX_FILE_BYTES) {
-      return 'Plik jest większy niż 1 GB.';
+      return 'Plik jest większy niż 200 MB.';
     }
     return null;
   }
