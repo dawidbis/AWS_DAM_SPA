@@ -36,7 +36,7 @@ describe('App', () => {
 
   it('shows upload sections to a contributor', async () => {
     oidc.signIn({ 'cognito:groups': ['contributor'] });
-    expect(await navLabels()).toEqual(['Galeria', 'Upload', 'Moje zgłoszenia']);
+    expect(await navLabels()).toEqual(['Upload', 'Moje zgłoszenia']);
   });
 
   it('shows every section to an admin', async () => {

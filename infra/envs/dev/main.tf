@@ -211,6 +211,70 @@ module "upload_lambdas" {
   }
 }
 
+# --- Katalog: galeria, moje zgłoszenia, publikacja, pobieranie -------------------
+# dam-assets-read jest jedyną rolą z odczytem bucketu clean (polityka bucketu),
+# więc tylko ta funkcja podpisuje linki do plików.
+
+data "aws_iam_policy_document" "assets_read" {
+  statement {
+    sid     = "ReadAssets"
+    actions = ["dynamodb:GetItem", "dynamodb:Query"]
+    resources = [
+      module.data.assets_table_arn,
+      "${module.data.assets_table_arn}/index/status-index",
+      "${module.data.assets_table_arn}/index/uploader-index",
+    ]
+  }
+
+  statement {
+    sid       = "PresignCleanObjects"
+    actions   = ["s3:GetObject"]
+    resources = ["${module.storage.bucket_arns["clean"]}/*"]
+  }
+}
+
+data "aws_iam_policy_document" "asset_publish" {
+  statement {
+    sid       = "TransitionAssetStatus"
+    actions   = ["dynamodb:UpdateItem"]
+    resources = [module.data.assets_table_arn]
+  }
+}
+
+module "assets_read" {
+  source = "../../modules/rust-lambda"
+
+  name                     = "assets-read"
+  function_name            = "${local.name_prefix}-assets-read"
+  description              = "GET /assets i GET /assets/{assetId}/download: katalog i presigned URL-e do plików"
+  zip_path                 = "${var.lambda_artifacts_dir}/api-assets-read/bootstrap.zip"
+  permissions_boundary_arn = data.aws_iam_policy.permissions_boundary.arn
+  memory_size              = 256
+
+  policies = { main = data.aws_iam_policy_document.assets_read.json }
+
+  environment = {
+    ASSETS_TABLE = module.data.assets_table_name
+    CLEAN_BUCKET = module.storage.bucket_names["clean"]
+  }
+}
+
+module "asset_publish" {
+  source = "../../modules/rust-lambda"
+
+  name                     = "asset-publish"
+  function_name            = "${local.name_prefix}-asset-publish"
+  description              = "POST /assets/{assetId}/publish: publikacja przez A (warunkowa zmiana statusu)"
+  zip_path                 = "${var.lambda_artifacts_dir}/api-asset-publish/bootstrap.zip"
+  permissions_boundary_arn = data.aws_iam_policy.permissions_boundary.arn
+
+  policies = { main = data.aws_iam_policy_document.asset_publish.json }
+
+  environment = {
+    ASSETS_TABLE = module.data.assets_table_name
+  }
+}
+
 module "api" {
   source = "../../modules/http-api"
 
@@ -224,5 +288,8 @@ module "api" {
     "POST /uploads"                    = { function_name = module.upload_lambdas["upload-init"].function_name, function_arn = module.upload_lambdas["upload-init"].function_arn }
     "GET /uploads/{assetId}"           = { function_name = module.upload_lambdas["upload-status"].function_name, function_arn = module.upload_lambdas["upload-status"].function_arn }
     "POST /uploads/{assetId}/complete" = { function_name = module.upload_lambdas["upload-complete"].function_name, function_arn = module.upload_lambdas["upload-complete"].function_arn }
+    "GET /assets"                      = { function_name = module.assets_read.function_name, function_arn = module.assets_read.function_arn }
+    "GET /assets/{assetId}/download"   = { function_name = module.assets_read.function_name, function_arn = module.assets_read.function_arn }
+    "POST /assets/{assetId}/publish"   = { function_name = module.asset_publish.function_name, function_arn = module.asset_publish.function_arn }
   }
 }

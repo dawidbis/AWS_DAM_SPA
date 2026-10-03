@@ -33,6 +33,15 @@ jobs:
       - run: cargo fmt --all --check
       - run: cargo clippy --all-targets --locked -- -D warnings
       - run: cargo test --locked
+      # cargo test regeneruje typy TS (ts-rs); w repo muszą być aktualne.
+      - name: Typy TypeScript z Rusta są aktualne
+        run: |
+          changes=$(git status --porcelain -- ../frontend/src/app/core/api/generated-types)
+          if [ -n "$changes" ]; then
+            echo "$changes"
+            echo "::error::Uruchom 'cargo test' w lambdas/ i zacommituj frontend/src/app/core/api/generated-types"
+            exit 1
+          fi
 
   frontend:
     name: Angular (lint, test, build)

@@ -5,6 +5,8 @@ const tseslint = require('typescript-eslint');
 const angular = require('angular-eslint');
 
 module.exports = defineConfig([
+  // Typy generowane z Rusta przez ts-rs (cargo test w lambdas/), nie edytować ręcznie.
+  { ignores: ['src/app/core/api/generated-types/**'] },
   {
     files: ['**/*.ts'],
     extends: [

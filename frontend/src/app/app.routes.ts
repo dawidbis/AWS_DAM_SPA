@@ -2,8 +2,11 @@ import { Routes } from '@angular/router';
 
 import { AuthCallback } from './core/auth/auth-callback';
 import { requireGroups } from './core/auth/require-groups.guard';
+import { AdminPage } from './features/admin/admin-page';
+import { GalleryPage } from './features/gallery/gallery-page';
 import { HomePage } from './features/pages/home-page';
 import { PlaceholderPage } from './features/pages/placeholder-page';
+import { MySubmissionsPage } from './features/submissions/my-submissions-page';
 import { UploadPage } from './features/upload/upload-page';
 
 export const routes: Routes = [
@@ -11,10 +14,9 @@ export const routes: Routes = [
   { path: 'auth/callback', component: AuthCallback },
   {
     path: 'gallery',
-    component: PlaceholderPage,
+    component: GalleryPage,
     canActivate: [requireGroups('admin', 'staff', 'contributor', 'viewer')],
     title: 'Galeria',
-    data: { title: 'Galeria', description: 'Opublikowane materiały. Powstaje w etapie 1.' },
   },
   {
     path: 'upload',
@@ -24,17 +26,15 @@ export const routes: Routes = [
   },
   {
     path: 'my-submissions',
-    component: PlaceholderPage,
+    component: MySubmissionsPage,
     canActivate: [requireGroups('admin', 'contributor')],
     title: 'Moje zgłoszenia',
-    data: { title: 'Moje zgłoszenia', description: 'Status wgranych plików. Powstaje w etapie 1.' },
   },
   {
     path: 'admin',
-    component: PlaceholderPage,
+    component: AdminPage,
     canActivate: [requireGroups('admin')],
     title: 'Administracja',
-    data: { title: 'Administracja', description: 'Publikacja, kwarantanna i incydenty.' },
   },
   {
     path: 'forbidden',

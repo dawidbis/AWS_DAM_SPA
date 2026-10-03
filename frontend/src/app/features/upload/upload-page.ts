@@ -1,11 +1,12 @@
 import { DecimalPipe } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { Component, computed, inject, signal } from '@angular/core';
 
 import { ACCEPTED_TYPES, UploadService } from '../../core/upload/upload.service';
 
 @Component({
   selector: 'app-upload-page',
-  imports: [DecimalPipe],
+  imports: [DecimalPipe, RouterLink],
   template: `
     <section class="card bg-base-200 max-w-2xl">
       <div class="card-body gap-4">
@@ -68,6 +69,11 @@ import { ACCEPTED_TYPES, UploadService } from '../../core/upload/upload.service'
               >
                 {{ state().message }}
               </div>
+            }
+            @if (state().phase === 'done') {
+              <a class="link text-sm" routerLink="/my-submissions">
+                Sprawdź wynik skanu w „Moich zgłoszeniach”
+              </a>
             }
           </div>
         }

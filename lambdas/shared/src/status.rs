@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 /// Status assetu przechowywany w tabeli `assets`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum AssetStatus {
     Uploading,
