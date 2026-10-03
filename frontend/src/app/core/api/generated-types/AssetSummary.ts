@@ -10,6 +10,7 @@ export type AssetSummary = { assetId: string, status: AssetStatus, title: string
  */
 createdAt: number, updatedAt: number, 
 /**
- * Krótko żyjący URL do podglądu (tylko obrazy, tylko A i B).
+ * Krótko żyjący URL do podglądu (tylko obrazy): miniatura dla A i B,
+ * podgląd ze znakiem wodnym dla D, `null` w „moich zgłoszeniach”.
  */
 previewUrl: string | null, };

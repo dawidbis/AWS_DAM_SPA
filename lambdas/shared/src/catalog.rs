@@ -115,7 +115,8 @@ pub struct AssetSummary {
     pub created_at: u64,
     #[cfg_attr(test, ts(type = "number"))]
     pub updated_at: u64,
-    /// Krótko żyjący URL do podglądu (tylko obrazy, tylko A i B).
+    /// Krótko żyjący URL do podglądu (tylko obrazy): miniatura dla A i B,
+    /// podgląd ze znakiem wodnym dla D, `null` w „moich zgłoszeniach”.
     pub preview_url: Option<String>,
 }
 

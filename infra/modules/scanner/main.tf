@@ -1,7 +1,10 @@
 # Pipeline skanowania (rozdział 3.2):
 #   S3 quarantine → EventBridge → SQS scan-queue (+ DLQ) → Lambda start-scan
-#   → Step Functions scan-pipeline (pipeline.tf) → scan / finalize-clean /
-#   handle-infected → zdarzenie asset.infected → alert SNS (alerts.tf).
+#   → Step Functions scan-pipeline (pipeline.tf):
+#       scan → validate → cdr → renditions → finalize-clean   (CLEAN_DRAFT)
+#       scan → handle-infected → zdarzenie asset.infected → alert SNS (alerts.tf)
+#       błąd dowolnego kroku → SCAN_FAILED, odrzucenie → REJECTED
+# Opis: README.md w tym katalogu i docs/architecture.md (rozdział 6).
 # Lambda scan jest obrazem kontenera w ECR; obraz buduje CI (deploy.yml),
 # więc funkcja i maszyna stanów powstają dopiero, gdy podany jest image_uri.
 
@@ -217,7 +220,8 @@ resource "aws_lambda_function" "scan" {
   # x86_64: obraz buduje się natywnie na runnerach GitHub (ADR 0014).
   architectures = ["x86_64"]
 
-  # ClamAV trzyma bazę sygnatur w pamięci (~1,2 GB); plik do 1 GB w /tmp.
+  # ClamAV trzyma bazę sygnatur w pamięci (~1,2 GB); skanowany plik (do 200 MB)
+  # leży w /tmp, 2 GB zostawia zapas na pliki tymczasowe clamd.
   memory_size = 3008
   timeout     = local.scan_timeout_s
 
