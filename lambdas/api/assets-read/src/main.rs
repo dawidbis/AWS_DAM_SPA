@@ -2,6 +2,8 @@
 //!
 //! - `GET /assets?view=gallery|mine|drafts|failed[&cursor=]`: galeria (A, B),
 //!   własne zgłoszenia (A, C), kolejka publikacji i nieudane skany (A),
+//!   Podglądy: miniatury z `renditions` dla A i B, podglądy ze znakiem
+//!   wodnym dla D (nigdy oryginał),
 //! - `GET /assets/{assetId}/download`: krótko żyjący presigned URL do
 //!   oryginału z bucketu `clean` (A, B; rozdział 4).
 //!
@@ -19,10 +21,11 @@ use aws_sdk_s3::presigning::PresigningConfig;
 use lambda_http::{Body, Error, Request, Response, http::StatusCode, service_fn};
 use shared::assets::asset_pk;
 use shared::catalog::{
-    AssetListResponse, AssetRecord, AssetView, Cursor, DownloadResponse, attachment_filename, can_download,
-    is_asset_id, status_for_uploader,
+    AssetListResponse, AssetRecord, AssetView, Cursor, DownloadResponse, PreviewSource, attachment_filename,
+    can_download, is_asset_id, preview_source, status_for_uploader, watermark_only,
 };
 use shared::http::{self, ApiError};
+use shared::pipeline::{preview_key, thumbnail_key};
 use shared::{AssetStatus, Caller, UserGroup};
 
 /// Ważność linków do plików (rozdział 4: np. 5 minut).
@@ -34,6 +37,7 @@ struct App {
     dynamo: aws_sdk_dynamodb::Client,
     table: String,
     bucket: String,
+    renditions: String,
 }
 
 /// Zapytanie do indeksu GSI wynikające z widoku i wywołującego.
@@ -87,7 +91,8 @@ fn parse_cursor(request: &Request) -> Result<Option<Cursor>, ApiError> {
 
 async fn presign_get(
     app: &App,
-    asset_id: &str,
+    bucket: &str,
+    key: &str,
     content_type: &str,
     disposition: String,
 ) -> Result<String, ApiError> {
@@ -95,8 +100,8 @@ async fn presign_get(
     let request = app
         .s3
         .get_object()
-        .bucket(&app.bucket)
-        .key(asset_id)
+        .bucket(bucket)
+        .key(key)
         .response_content_type(content_type)
         .response_content_disposition(disposition)
         .response_cache_control("private, no-store")
@@ -146,10 +151,43 @@ async fn list(
         let Some(status) = visible_status(view, caller, record.status) else {
             continue;
         };
-        let preview_url = if view.with_previews() && record.is_image() {
-            Some(presign_get(app, &record.asset_id, &record.content_type, "inline".to_owned()).await?)
-        } else {
-            None
+        let source = preview_source(view, caller, &record);
+        // D widzi tylko assety z podglądem ze znakiem wodnym.
+        if watermark_only(caller) && view == AssetView::Gallery && source != PreviewSource::Watermarked {
+            continue;
+        }
+        let preview_url = match source {
+            PreviewSource::Thumbnail => Some(
+                presign_get(
+                    app,
+                    &app.renditions,
+                    &thumbnail_key(&record.asset_id),
+                    "image/jpeg",
+                    "inline".to_owned(),
+                )
+                .await?,
+            ),
+            PreviewSource::Watermarked => Some(
+                presign_get(
+                    app,
+                    &app.renditions,
+                    &preview_key(&record.asset_id),
+                    "image/jpeg",
+                    "inline".to_owned(),
+                )
+                .await?,
+            ),
+            PreviewSource::Original => Some(
+                presign_get(
+                    app,
+                    &app.bucket,
+                    &record.asset_id,
+                    &record.content_type,
+                    "inline".to_owned(),
+                )
+                .await?,
+            ),
+            PreviewSource::None => None,
         };
         items.push(record.into_summary(status, preview_url));
     }
@@ -191,6 +229,7 @@ async fn download(
     let filename = attachment_filename(&record.original_filename, asset_id);
     let url = presign_get(
         app,
+        &app.bucket,
         asset_id,
         &record.content_type,
         format!("attachment; filename=\"{filename}\""),
@@ -231,6 +270,7 @@ async fn main() -> Result<(), Error> {
         dynamo: aws_sdk_dynamodb::Client::new(&config),
         table: http::env("ASSETS_TABLE"),
         bucket: http::env("CLEAN_BUCKET"),
+        renditions: http::env("RENDITIONS_BUCKET"),
     });
     lambda_http::run(service_fn(move |request: Request| {
         let app = Arc::clone(&app);
@@ -270,6 +310,7 @@ mod tests {
             dynamo: aws_sdk_dynamodb::Client::from_conf(dynamo_config),
             table: "assets".to_owned(),
             bucket: "clean".to_owned(),
+            renditions: "renditions".to_owned(),
         }
     }
 
@@ -344,6 +385,7 @@ mod tests {
     async fn download_url_is_short_lived_and_forces_attachment() {
         let url = presign_get(
             &app(),
+            "clean",
             "asset-1",
             "image/jpeg",
             "attachment; filename=\"gol.jpg\"".to_owned(),

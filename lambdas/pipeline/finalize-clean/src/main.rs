@@ -6,6 +6,7 @@
 //! dostaje status `CLEAN_DRAFT` z danymi ustalonymi przez pipeline: typem
 //! z magic bytes, wymiarami, rozmiarem i SHA-256 zrekonstruowanego pliku
 //! oraz przepuszczonymi polami EXIF (rozdział 5: nie od klienta).
+//! Znacznik `hasRenditions` mówi galerii, że są miniatura i podgląd.
 
 use std::sync::Arc;
 
@@ -59,6 +60,9 @@ fn clean_attributes(input: &StepInput, now: u64) -> Result<Vec<(&'static str, At
     else {
         return Err(format!("finalize-clean bez CDR: {:?}", input.disarm));
     };
+    if input.renditions.is_none() {
+        return Err("finalize-clean bez miniatury i podglądu".to_owned());
+    }
 
     let n = |value: u64| AttributeValue::N(value.to_string());
     let mut attributes = scan_attributes("CLEAN", engine, now);
@@ -70,6 +74,7 @@ fn clean_attributes(input: &StepInput, now: u64) -> Result<Vec<(&'static str, At
         ("sizeBytes", n(*size_bytes)),
         ("sha256", AttributeValue::S(sha256.clone())),
         ("disarmedAt", n(now)),
+        ("hasRenditions", AttributeValue::Bool(true)),
     ]);
     for (name, value) in [
         ("exifArtist", &metadata.artist),
@@ -146,7 +151,7 @@ async fn main() -> Result<(), Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use shared::pipeline::PreservedMetadata;
+    use shared::pipeline::{PreservedMetadata, RenditionsOutcome};
 
     fn complete() -> StepInput {
         StepInput {
@@ -166,6 +171,10 @@ mod tests {
                     artist: Some("Jan Fotograf".to_owned()),
                     ..PreservedMetadata::default()
                 },
+            }),
+            renditions: Some(RenditionsOutcome {
+                thumbnail_key: "thumb/x.jpg".to_owned(),
+                preview_key: "preview/x.jpg".to_owned(),
             }),
             ..StepInput::new("0b6f3c1e-8a2d-4f5b-9c7e-1d2a3b4c5d6e")
         }
@@ -206,6 +215,10 @@ mod tests {
             engine: "ClamAV".to_owned(),
         });
         assert!(clean_attributes(&infected, 1).is_err());
+
+        let mut no_renditions = complete();
+        no_renditions.renditions = None;
+        assert!(clean_attributes(&no_renditions, 1).is_err());
 
         let mut not_validated = complete();
         not_validated.validation = None;

@@ -144,6 +144,14 @@ Od etapu 2 plik z kwarantanny przechodzi przez maszynę stanów `matchday-dam-de
 
 Bucket `infected` ma Object Lock w trybie GOVERNANCE (retencja 90 dni): nikt nie podmieni ani nie usunie dowodu bez uprawnienia `s3:BypassGovernanceRetention`.
 
+## 12. Podglądy ze znakiem wodnym (etap 2)
+
+Po CDR krok `Renditions` zapisuje w buckecie `matchday-dam-dev-renditions` miniaturę (`thumb/<id>.jpg`, 400 px) i podgląd ze znakiem wodnym (`preview/<id>.jpg`, 1200 px).
+
+1. Wgraj i opublikuj nowe zdjęcie (wykonanie przechodzi `… → Disarm → Renditions → FinalizeClean`).
+2. `+staff` w „Galerii” widzi miniaturę i może pobrać oryginał.
+3. `+sponsor` (D) w „Galerii” widzi ten sam asset jako podgląd z napisem „KS MATCHDAY PODGLAD”, bez przycisku „Pobierz”. Assety opublikowane przed tym krokiem nie mają podglądów, więc D ich nie widzi.
+
 ## Hamulec kosztów
 
 ```bash

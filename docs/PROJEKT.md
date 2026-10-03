@@ -495,8 +495,8 @@ Każdy etap kończy się działającym, wdrożonym systemem. Po etapie 1 projekt
 - [x] Lambda `validate`: magic bytes (`infer`), whitelista typów, porównanie z deklaracją, limit rozmiaru i wymiarów obrazu
 - [x] Lambda `cdr`: dekodowanie i ponowne kodowanie obrazów, usunięcie metadanych, przepuszczenie whitelisty pól (autor, data, prawa autorskie)
 - [x] Ochrona przed bombami dekompresyjnymi: sprawdzanie wymiarów przed pełnym dekodowaniem, limit pamięci
-- [ ] Lambda `renditions`: miniatury i podglądy z watermarkiem dla grupy D
-- [ ] Bucket `renditions`, grupa D widzi wyłącznie podglądy
+- [x] Lambda `renditions`: miniatury i podglądy z watermarkiem dla grupy D
+- [x] Bucket `renditions`, grupa D widzi wyłącznie podglądy
 - [ ] Walidacja metadanych JSON Schema w `upload-init` i przy edycji
 - [x] Statusy `REJECTED` i `SCAN_FAILED` (fail closed), ponowienie skanu przez admina
 - [x] Object Lock na buckecie `infected`

@@ -36,6 +36,14 @@ variable "clean_bucket_arn" {
   type = string
 }
 
+variable "renditions_bucket" {
+  type = string
+}
+
+variable "renditions_bucket_arn" {
+  type = string
+}
+
 variable "infected_bucket" {
   type = string
 }

@@ -57,9 +57,11 @@ describe('GalleryPage', () => {
     );
   });
 
-  it('does not query the API for viewers yet', async () => {
+  it('shows watermarked previews to viewers without a download button', async () => {
     const { assets, element } = await setup(['viewer']);
-    expect(assets.list).not.toHaveBeenCalled();
-    expect(element.textContent).toContain('watermarkiem');
+    expect(assets.list).toHaveBeenCalledWith('gallery', null);
+    expect(element.querySelector('img')?.getAttribute('src')).toBe('https://s3.example/p');
+    expect(element.querySelector('[data-testid="asset-card"] button')).toBeNull();
+    expect(element.querySelector('[data-testid="watermark-info"]')).not.toBeNull();
   });
 });

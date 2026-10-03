@@ -43,7 +43,8 @@ impl AssetView {
     #[must_use]
     pub const fn allowed_groups(self) -> &'static [UserGroup] {
         match self {
-            Self::Gallery => &[UserGroup::Admin, UserGroup::Staff],
+            // D widzi galerię wyłącznie jako podglądy ze znakiem wodnym.
+            Self::Gallery => &[UserGroup::Admin, UserGroup::Staff, UserGroup::Viewer],
             Self::Mine => &[UserGroup::Admin, UserGroup::Contributor],
             Self::Drafts | Self::Failed => &[UserGroup::Admin],
         }
@@ -56,6 +57,44 @@ impl AssetView {
     #[must_use]
     pub const fn with_previews(self) -> bool {
         matches!(self, Self::Gallery | Self::Drafts)
+    }
+}
+
+/// Skąd pochodzi podgląd assetu na liście.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PreviewSource {
+    /// Miniatura z bucketu `renditions` (A, B).
+    Thumbnail,
+    /// Podgląd ze znakiem wodnym z bucketu `renditions` (D).
+    Watermarked,
+    /// Plik z `clean`: assety sprzed kroku renditions (A, B).
+    Original,
+    None,
+}
+
+/// Czy wywołujący widzi wyłącznie podglądy ze znakiem wodnym (grupa D bez
+/// innej grupy, która daje dostęp do oryginałów).
+#[must_use]
+pub fn watermark_only(caller: &Caller) -> bool {
+    !caller.has_any_group(&[UserGroup::Admin, UserGroup::Staff])
+}
+
+/// Podgląd assetu dla wywołującego. Grupa D nigdy nie dostaje oryginału ani
+/// miniatury bez znaku wodnego (rozdział 4).
+#[must_use]
+pub fn preview_source(view: AssetView, caller: &Caller, record: &AssetRecord) -> PreviewSource {
+    if !view.with_previews() || !record.is_image() {
+        PreviewSource::None
+    } else if watermark_only(caller) {
+        if record.has_renditions {
+            PreviewSource::Watermarked
+        } else {
+            PreviewSource::None
+        }
+    } else if record.has_renditions {
+        PreviewSource::Thumbnail
+    } else {
+        PreviewSource::Original
     }
 }
 
@@ -146,6 +185,8 @@ pub struct AssetRecord {
     pub size_bytes: u64,
     pub created_at: u64,
     pub updated_at: u64,
+    /// Pipeline utworzył miniaturę i podgląd ze znakiem wodnym.
+    pub has_renditions: bool,
 }
 
 impl AssetRecord {
@@ -172,6 +213,11 @@ impl AssetRecord {
             size_bytes: number("sizeBytes").or_else(|| number("declaredSize"))?,
             created_at,
             updated_at: number("updatedAt").unwrap_or(created_at),
+            has_renditions: item
+                .get("hasRenditions")
+                .and_then(|v| v.as_bool().ok())
+                .copied()
+                .unwrap_or(false),
         })
     }
 
@@ -298,6 +344,39 @@ mod tests {
     }
 
     #[test]
+    fn viewers_only_ever_get_watermarked_previews() {
+        let viewer = caller(&[UserGroup::Viewer]);
+        let staff = caller(&[UserGroup::Staff]);
+        let legacy = AssetRecord::from_item(&item()).unwrap();
+        let mut processed_item = item();
+        processed_item.insert("hasRenditions".to_owned(), AttributeValue::Bool(true));
+        let processed = AssetRecord::from_item(&processed_item).unwrap();
+
+        assert_eq!(
+            preview_source(AssetView::Gallery, &viewer, &processed),
+            PreviewSource::Watermarked
+        );
+        assert_eq!(
+            preview_source(AssetView::Gallery, &viewer, &legacy),
+            PreviewSource::None
+        );
+        assert_eq!(
+            preview_source(AssetView::Gallery, &staff, &processed),
+            PreviewSource::Thumbnail
+        );
+        assert_eq!(
+            preview_source(AssetView::Gallery, &staff, &legacy),
+            PreviewSource::Original
+        );
+        assert_eq!(
+            preview_source(AssetView::Mine, &staff, &processed),
+            PreviewSource::None
+        );
+        assert!(AssetView::Gallery.allowed_groups().contains(&UserGroup::Viewer));
+        assert!(!can_download(&viewer, AssetStatus::Published));
+    }
+
+    #[test]
     fn prefers_facts_established_by_the_pipeline() {
         let mut processed = item();
         processed.insert(
@@ -368,7 +447,6 @@ mod tests {
                 .allowed_groups()
                 .contains(&UserGroup::Contributor)
         );
-        assert!(!AssetView::Gallery.allowed_groups().contains(&UserGroup::Viewer));
         assert_eq!(AssetView::Drafts.allowed_groups(), &[UserGroup::Admin]);
         assert!(!AssetView::Mine.with_previews());
         assert!(!AssetView::Failed.with_previews());

@@ -18,21 +18,27 @@ variable "bucket_access" {
       readers = ["dam-validate", "dam-scan", "dam-cdr", "dam-handle-infected"]
       writers = ["dam-upload-init", "dam-upload-status", "dam-upload-complete"]
     }
-    # dam-finalize-clean kopiuje wersję po CDR z clean/staging/ do clean/<id>
-    # (polityka IAM ogranicza jej odczyt do staging/*).
+    # dam-finalize-clean kopiuje wersję po CDR z clean/staging/ do clean/<id>,
+    # a dam-renditions robi z niej miniaturę i podgląd (polityki IAM obu ról
+    # ograniczają odczyt do staging/*).
     clean = {
-      readers = ["dam-assets-read", "dam-finalize-clean"]
+      readers = ["dam-assets-read", "dam-finalize-clean", "dam-renditions"]
       writers = ["dam-finalize-clean", "dam-cdr"]
     }
     infected = {
       readers = []
       writers = ["dam-handle-infected"]
     }
+    # Miniatury i podglądy ze znakiem wodnym (rozdział 9): zapis tylko renditions.
+    renditions = {
+      readers = ["dam-assets-read"]
+      writers = ["dam-renditions"]
+    }
   }
 
   validation {
-    condition     = alltrue([for name in ["quarantine", "clean", "infected"] : contains(keys(var.bucket_access), name)])
-    error_message = "bucket_access musi zawierać quarantine, clean i infected."
+    condition     = alltrue([for name in ["quarantine", "clean", "infected", "renditions"] : contains(keys(var.bucket_access), name)])
+    error_message = "bucket_access musi zawierać quarantine, clean, infected i renditions."
   }
 }
 

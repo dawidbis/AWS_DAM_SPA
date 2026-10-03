@@ -2021,6 +2021,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "pipeline-renditions"
+version = "0.1.0"
+dependencies = [
+ "aws-config",
+ "aws-sdk-s3",
+ "image",
+ "lambda_runtime",
+ "serde",
+ "serde_json",
+ "shared",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "pipeline-scan"
 version = "0.1.0"
 dependencies = [
