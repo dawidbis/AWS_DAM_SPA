@@ -45,6 +45,15 @@ bucket() {
   jq -r --arg name "$name" '.[$name]' <<<"$BUCKETS_JSON"
 }
 
+# object_count <bucket> <klucz> → ile obiektów ma dokładnie ten klucz (0 albo 1).
+# Liczymy elementy Contents: CLI v2 stronicuje list-objects-v2 automatycznie
+# i w scalonym wyniku nie ma pola KeyCount (zawsze null).
+object_count() {
+  local bucket_name="$1" key="$2"
+  aws s3api list-objects-v2 --bucket "$bucket_name" --prefix "$key" \
+    --query "length(Contents[?Key=='$key'] || \`[]\`)" --output text
+}
+
 PASSED=()
 FAILED=()
 ASSETS=()
@@ -199,7 +208,7 @@ echo "Scenariusze rozdziału 12:"
 
 # 1. EICAR
 check "1. EICAR → INFECTED" test "$(wait_final "$eicar")" = INFECTED
-check "1. EICAR w buckecie infected" test "$(aws s3api list-objects-v2 --bucket "$(bucket infected)" --prefix "$eicar" --query 'KeyCount')" -ge 1
+check "1. EICAR w buckecie infected" test "$(object_count "$(bucket infected)" "$eicar")" = 1
 check "1. wpis w incidents" test "$(aws dynamodb get-item --table-name "$INCIDENTS" --key "{\"incidentId\":{\"S\":\"$eicar\"}}" --query 'Item.signature.S' --output text)" != None
 
 # 2. XSS w EXIF
@@ -236,7 +245,7 @@ check "6. odrzucona na limicie wymiarów" bash -c "[[ '$(attribute_of "$bomb" re
 # 7. Path traversal w nazwie
 check "7. ../../etc/passwd.jpg → CLEAN_DRAFT" test "$(wait_final "$traversal")" = CLEAN_DRAFT
 check "7. nazwa po sanityzacji" test "$(attribute_of "$traversal" originalFilename)" = passwd.jpg
-check "7. klucz S3 to UUID" test "$(aws s3api list-objects-v2 --bucket "$(bucket clean)" --prefix "$traversal" --query 'KeyCount')" -ge 1
+check "7. klucz S3 to UUID" test "$(object_count "$(bucket clean)" "$traversal")" = 1
 
 # 8. <script> w tytule
 check "8. tytuł ze skryptem → 400" test "$(api contributor POST /uploads '{"filename":"a.jpg","size":10,"contentType":"image/jpeg","title":"<script>alert(1)</script>"}')" = 400
@@ -254,7 +263,7 @@ head -c 5000 /dev/urandom >"$WORK/big"
 curl -sS -o /dev/null -X PUT --data-binary @"$WORK/big" "$(jq -r '.parts[0].url' "$WORK/response.json")"
 check "11. upload-complete odrzuca większy plik" bash -c "[[ \$(curl -sS -o /dev/null -w '$HTTP_CODE' -X POST -H 'authorization: Bearer ${TOKEN[contributor]}' -H 'content-type: application/json' --data '{}' '$API/uploads/$liar/complete') == 4* ]]"
 check "11. status REJECTED" test "$(status_of "$liar")" = REJECTED
-check "11. obiekt usunięty z kwarantanny" test "$(aws s3api list-objects-v2 --bucket "$(bucket quarantine)" --prefix "$liar" --query 'KeyCount')" = 0
+check "11. obiekt usunięty z kwarantanny" test "$(object_count "$(bucket quarantine)" "$liar")" = 0
 
 # 12. Upload na inny klucz niż w presigned URL
 api contributor POST /uploads '{"filename":"x.jpg","size":100,"contentType":"image/jpeg"}' >/dev/null
@@ -313,7 +322,8 @@ check "16. token innej puli → 401" test "$(curl -sS -o /dev/null -w "$HTTP_COD
 check "Usuwanie: C nie usunie assetu → 403" test "$(api contributor DELETE "/assets/$traversal")" = 403
 check "Usuwanie: zainfekowany asset zostaje → 409" test "$(api admin DELETE "/assets/$eicar")" = 409
 check "Usuwanie: A usuwa asset → 200" test "$(api admin DELETE "/assets/$traversal")" = 200
-check "Usuwanie: rekord i plik usunięte" bash -c "[[ '$(status_of "$traversal")' == None && \$(aws s3api list-objects-v2 --bucket '$(bucket clean)' --prefix '$traversal' --query KeyCount) == 0 ]]"
+check "Usuwanie: rekord usunięty" test "$(status_of "$traversal")" = None
+check "Usuwanie: plik usunięty z clean" test "$(object_count "$(bucket clean)" "$traversal")" = 0
 
 echo
 echo "Wynik: ${#PASSED[@]} OK, ${#FAILED[@]} błędów."
