@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["shared", "hello-world", "api/me", "api/upload-init", "api/upload-status", "api/upload-complete", "pipeline/scan"]
+members = ["shared", "hello-world", "api/me", "api/upload-init", "api/upload-status", "api/upload-complete", "api/assets-read", "api/asset-publish", "pipeline/scan"]
 
 [workspace.package]
 edition = "2024"

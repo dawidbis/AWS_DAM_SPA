@@ -136,6 +136,15 @@ pub fn path_param(request: &Request, name: &str) -> Result<String, ApiError> {
         .ok_or_else(|| ApiError::BadRequest(format!("Missing path parameter {name}")))
 }
 
+/// Opcjonalny parametr query stringa (np. `?view=gallery`).
+#[must_use]
+pub fn query_param(request: &Request, name: &str) -> Option<String> {
+    request
+        .query_string_parameters_ref()
+        .and_then(|params| params.first(name))
+        .map(str::to_owned)
+}
+
 /// Konfiguracja z zmiennej środowiskowej Lambdy.
 ///
 /// # Panics

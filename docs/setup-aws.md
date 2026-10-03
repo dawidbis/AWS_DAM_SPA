@@ -123,6 +123,16 @@ Lokalny frontend (`npm start`) potrzebuje `frontend/public/config.json`: `just f
 
 Pierwszy skan po deployu jest wolniejszy (cold start: wczytanie bazy sygnatur). Komunikaty, których nie udało się przetworzyć 3 razy, trafiają do kolejki `matchday-dam-dev-scan-dlq`.
 
+## 10. Galeria, publikacja i pobieranie (etap 1)
+
+Test kryterium ukończenia etapu 1:
+
+1. `+foto` (C) wgrywa zwykłe zdjęcie JPEG. W „Moich zgłoszeniach” status zmienia się z „Skanowanie” na „Czeka na publikację” (lista sama się odświeża).
+2. `+admin` (A) otwiera „Administracja”, widzi podgląd zdjęcia i klika **Publikuj**.
+3. `+staff` (B) otwiera „Galeria”, widzi zdjęcie i klika **Pobierz**. Link jest ważny 5 minut i wystawia go Lambda `assets-read` po sprawdzeniu grupy.
+
+Grupa C nie widzi galerii ani nie pobiera oryginałów. Plik zainfekowany widzi w „Moich zgłoszeniach” tylko jako „Odrzucony”, bez szczegółów wykrycia (pełny status widzi A). Grupa D dostanie podglądy z watermarkiem w etapie 2.
+
 ## Hamulec kosztów
 
 ```bash

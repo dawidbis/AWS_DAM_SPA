@@ -469,21 +469,21 @@ Każdy etap kończy się działającym, wdrożonym systemem. Po etapie 1 projekt
 
 **Cel:** pełny przepływ od uploadu do galerii z antywirusem.
 
-- [ ] Cognito User Pool, grupy A–D, konta testowe dla każdej grupy
-- [ ] Hosting frontendu: S3 + CloudFront z Origin Access Control
-- [ ] Angular: logowanie (OIDC + PKCE), guardy tras według grup, interceptor JWT
-- [ ] API Gateway HTTP API z autoryzatorem JWT
-- [ ] Moduł `storage`: buckety `quarantine`, `clean`, `infected` z politykami, lifecycle i CORS
-- [ ] Lambdy `upload-init` i `upload-complete` (presigned URL-e dla części, weryfikacja rozmiaru)
-- [ ] Angular: upload multipart w Web Workerze, postęp, równoległe części, wznawianie z IndexedDB
-- [ ] Tabela DynamoDB `assets` z warunkowymi przejściami statusów
-- [ ] EventBridge → SQS (+ DLQ) → `start-scan`
-- [ ] Obraz kontenera ze skanerem ClamAV w ECR, Lambda `scan`
-- [ ] Mechanizm aktualizacji sygnatur ClamAV (przebudowa obrazu w CI lub zaplanowana aktualizacja do S3)
-- [ ] Ścieżka czysta: kopiowanie do `clean`, status `CLEAN_DRAFT`
-- [ ] Ścieżka zainfekowana: przeniesienie do `infected`, status `INFECTED`, mail przez SNS
-- [ ] Angular: galeria, „moje zgłoszenia" (C), publikacja (A), pobieranie przez presigned URL (A, B)
-- [ ] Generowanie typów TypeScript z Rusta (`ts-rs`) w buildzie
+- [x] Cognito User Pool, grupy A–D, konta testowe dla każdej grupy
+- [x] Hosting frontendu: S3 + CloudFront z Origin Access Control
+- [x] Angular: logowanie (OIDC + PKCE), guardy tras według grup, interceptor JWT
+- [x] API Gateway HTTP API z autoryzatorem JWT
+- [x] Moduł `storage`: buckety `quarantine`, `clean`, `infected` z politykami, lifecycle i CORS
+- [x] Lambdy `upload-init` i `upload-complete` (presigned URL-e dla części, weryfikacja rozmiaru)
+- [x] Angular: upload multipart w Web Workerze, postęp, równoległe części, wznawianie z IndexedDB
+- [x] Tabela DynamoDB `assets` z warunkowymi przejściami statusów
+- [x] EventBridge → SQS (+ DLQ) → `start-scan` (w etapie 1 SQS wywołuje bezpośrednio Lambdę `scan`, ADR 0014)
+- [x] Obraz kontenera ze skanerem ClamAV w ECR, Lambda `scan`
+- [x] Mechanizm aktualizacji sygnatur ClamAV (przebudowa obrazu w CI lub zaplanowana aktualizacja do S3)
+- [x] Ścieżka czysta: kopiowanie do `clean`, status `CLEAN_DRAFT`
+- [x] Ścieżka zainfekowana: przeniesienie do `infected`, status `INFECTED`, mail przez SNS
+- [x] Angular: galeria, „moje zgłoszenia" (C), publikacja (A), pobieranie przez presigned URL (A, B)
+- [x] Generowanie typów TypeScript z Rusta (`ts-rs`) w buildzie
 
 **Gotowe, gdy:** plik testowy EICAR wgrany przez użytkownika grupy C ląduje w `infected`, a admin dostaje maila. Zwykłe zdjęcie po publikacji przez A jest widoczne i do pobrania dla B.
 

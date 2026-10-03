@@ -21,6 +21,10 @@ build-lambdas:
 build-frontend:
     cd frontend && npm ci --ignore-scripts && npm run build
 
+# Regeneruje typy TypeScript z modeli Rusta (ts-rs) do frontend/src/app/core/api/generated-types
+types:
+    cd lambdas && cargo test -p shared --quiet
+
 # --- jakość ------------------------------------------------------------------
 
 # Formatuje kod Rust, Terraform i frontend

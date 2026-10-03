@@ -11,7 +11,7 @@ interface NavLink {
 }
 
 const NAV_LINKS: NavLink[] = [
-  { path: '/gallery', label: 'Galeria', groups: ['admin', 'staff', 'contributor', 'viewer'] },
+  { path: '/gallery', label: 'Galeria', groups: ['admin', 'staff', 'viewer'] },
   { path: '/upload', label: 'Upload', groups: ['admin', 'contributor'] },
   { path: '/my-submissions', label: 'Moje zgłoszenia', groups: ['admin', 'contributor'] },
   { path: '/admin', label: 'Administracja', groups: ['admin'] },
