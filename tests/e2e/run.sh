@@ -20,11 +20,12 @@ TF_DIR="${TF_DIR:-$ROOT/infra/envs/dev}"
 RUN_ID="e2e$(date +%s)"
 WORK="$(mktemp -d)"
 TIMEOUT_S="${E2E_TIMEOUT_S:-420}"
+HTTP_CODE='%{http_code}'
 
 output() {
   # Wartość outputu Terraform (lub zmiennej środowiskowej o tej samej nazwie wielkimi literami).
   local name="$1" env_name
-  env_name="$(echo "$1" | tr '[:lower:]' '[:upper:]')"
+  env_name="$(echo "$name" | tr '[:lower:]' '[:upper:]')"
   if [[ -n "${!env_name:-}" ]]; then
     echo "${!env_name}"
   else
@@ -39,15 +40,26 @@ TABLE="$(output assets_table)"
 INCIDENTS="$(output incidents_table)"
 STATE_MACHINE="$(output scan_state_machine_arn)"
 BUCKETS_JSON="${STORAGE_BUCKETS:-$(terraform -chdir="$TF_DIR" output -json storage_buckets)}"
-bucket() { jq -r --arg name "$1" '.[$name]' <<<"$BUCKETS_JSON"; }
+bucket() {
+  local name="$1"
+  jq -r --arg name "$name" '.[$name]' <<<"$BUCKETS_JSON"
+}
 
 PASSED=()
 FAILED=()
 ASSETS=()
 USERS=()
 
-pass() { PASSED+=("$1"); echo "  ✔ $1"; }
-fail() { FAILED+=("$1: $2"); echo "  ✘ $1: $2"; }
+pass() {
+  local name="$1"
+  PASSED+=("$name")
+  echo "  ✔ $name"
+}
+fail() {
+  local name="$1" reason="$2"
+  FAILED+=("$name: $reason")
+  echo "  ✘ $name: $reason"
+}
 check() { # check <nazwa> <warunek-jako-polecenie...>
   local name="$1"
   shift
@@ -78,7 +90,8 @@ trap cleanup EXIT
 
 declare -A TOKEN
 create_user() {
-  local group="$1" email="$RUN_ID-$1@example.invalid" password
+  local group="$1" email password
+  email="$RUN_ID-$group@example.invalid"
   password="E2e-$(openssl rand -hex 12)A1"
   aws cognito-idp admin-create-user --user-pool-id "$POOL" --username "$email" \
     --user-attributes Name=email,Value="$email" Name=email_verified,Value=true \
@@ -97,9 +110,9 @@ api() {
   local group="$1" method="$2" path="$3" body="${4:-}" out="$WORK/response.json" auth=()
   [[ "$group" != "-" ]] && auth=(-H "authorization: Bearer ${TOKEN[$group]}")
   if [[ -n "$body" ]]; then
-    curl -sS -o "$out" -w '%{http_code}' -X "$method" "${auth[@]}" -H 'content-type: application/json' --data "$body" "$API$path"
+    curl -sS -o "$out" -w "$HTTP_CODE" -X "$method" "${auth[@]}" -H 'content-type: application/json' --data "$body" "$API$path"
   else
-    curl -sS -o "$out" -w '%{http_code}' -X "$method" "${auth[@]}" "$API$path"
+    curl -sS -o "$out" -w "$HTTP_CODE" -X "$method" "${auth[@]}" "$API$path"
   fi
 }
 
@@ -107,7 +120,8 @@ api() {
 
 # upload <grupa> <plik> <content-type> [nazwa] → ID assetu na stdout
 upload() {
-  local group="$1" file="$2" type="$3" name="${4:-$(basename "$2")}" size code asset part url offset
+  local group="$1" file="$2" type="$3" name="${4:-}" size code asset part url offset
+  [[ -n "$name" ]] || name="$(basename "$file")"
   size="$(wc -c <"$file" | tr -d ' ')"
   code="$(api "$group" POST /uploads "$(jq -nc --arg f "$name" --argjson s "$size" --arg t "$type" '{filename:$f,size:$s,contentType:$t}')")"
   [[ "$code" == 201 || "$code" == 200 ]] || { echo "upload-init $code: $(cat "$WORK/response.json")" >&2; return 1; }
@@ -128,22 +142,25 @@ upload() {
 }
 
 status_of() {
-  aws dynamodb get-item --table-name "$TABLE" --key "{\"pk\":{\"S\":\"ASSET#$1\"}}" --consistent-read \
+  local asset="$1"
+  aws dynamodb get-item --table-name "$TABLE" --key "{\"pk\":{\"S\":\"ASSET#$asset\"}}" --consistent-read \
     --query 'Item.status.S' --output text
 }
 
 attribute_of() {
-  aws dynamodb get-item --table-name "$TABLE" --key "{\"pk\":{\"S\":\"ASSET#$1\"}}" --consistent-read \
-    --query "Item.$2.S" --output text
+  local asset="$1" attribute="$2"
+  aws dynamodb get-item --table-name "$TABLE" --key "{\"pk\":{\"S\":\"ASSET#$asset\"}}" --consistent-read \
+    --query "Item.$attribute.S" --output text
 }
 
 # wait_final <asset> → końcowy status po pipeline'ie
 wait_final() {
-  local deadline=$((SECONDS + TIMEOUT_S)) status
+  local asset="$1" deadline=$((SECONDS + TIMEOUT_S)) status
   while ((SECONDS < deadline)); do
-    status="$(status_of "$1")"
+    status="$(status_of "$asset")"
     case "$status" in
       CLEAN_DRAFT | INFECTED | REJECTED | SCAN_FAILED) echo "$status"; return ;;
+      *) ;; # pipeline jeszcze pracuje
     esac
     sleep 5
   done
@@ -151,13 +168,16 @@ wait_final() {
 }
 
 download() { # download <asset> <plik>: oryginał po CDR przez API (A)
-  local code
-  code="$(api admin GET "/assets/$1/download")"
+  local asset="$1" target="$2" code
+  code="$(api admin GET "/assets/$asset/download")"
   [[ "$code" == 200 ]] || return 1
-  curl -sSf -o "$2" "$(jq -r .url "$WORK/response.json")"
+  curl -sSf -o "$target" "$(jq -r .url "$WORK/response.json")"
 }
 
-contains() { grep -aqF -- "$2" "$1"; }
+contains() {
+  local file="$1" needle="$2"
+  grep -aqF -- "$needle" "$file"
+}
 
 # --- Scenariusze -----------------------------------------------------------------
 
@@ -232,7 +252,7 @@ liar="$(jq -r .assetId "$WORK/response.json")"
 ASSETS+=("$liar")
 head -c 5000 /dev/urandom >"$WORK/big"
 curl -sS -o /dev/null -X PUT --data-binary @"$WORK/big" "$(jq -r '.parts[0].url' "$WORK/response.json")"
-check "11. upload-complete odrzuca większy plik" bash -c "[[ \$(curl -sS -o /dev/null -w '%{http_code}' -X POST -H 'authorization: Bearer ${TOKEN[contributor]}' -H 'content-type: application/json' --data '{}' '$API/uploads/$liar/complete') == 4* ]]"
+check "11. upload-complete odrzuca większy plik" bash -c "[[ \$(curl -sS -o /dev/null -w '$HTTP_CODE' -X POST -H 'authorization: Bearer ${TOKEN[contributor]}' -H 'content-type: application/json' --data '{}' '$API/uploads/$liar/complete') == 4* ]]"
 check "11. status REJECTED" test "$(status_of "$liar")" = REJECTED
 check "11. obiekt usunięty z kwarantanny" test "$(aws s3api list-objects-v2 --bucket "$(bucket quarantine)" --prefix "$liar" --query 'KeyCount')" = 0
 
@@ -241,7 +261,7 @@ api contributor POST /uploads '{"filename":"x.jpg","size":100,"contentType":"ima
 other="$(jq -r .assetId "$WORK/response.json")"
 ASSETS+=("$other")
 forged="$(jq -r '.parts[0].url' "$WORK/response.json" | sed -E "s#/$other\\?#/00000000-0000-4000-8000-000000000000?#")"
-check "12. inny klucz → błąd podpisu S3" test "$(curl -sS -o /dev/null -w '%{http_code}' -X PUT --data-binary 'x' "$forged")" = 403
+check "12. inny klucz → błąd podpisu S3" test "$(curl -sS -o /dev/null -w "$HTTP_CODE" -X PUT --data-binary 'x' "$forged")" = 403
 
 # 13. Podwójne zdarzenie S3
 if aws stepfunctions start-execution --state-machine-arn "$STATE_MACHINE" --name "$exif" \
@@ -265,8 +285,9 @@ check "14. błąd skanu → SCAN_FAILED" test "$(wait_final "$ghost")" = SCAN_FA
 # 15. Polityki IAM i bucketów: role nie mają dostępu poza swoim zakresem
 account="$(aws sts get-caller-identity --query Account --output text)"
 simulate() { # simulate <rola> <akcja> <zasób-arn> → allowed / implicitDeny / explicitDeny
-  aws iam simulate-principal-policy --policy-source-arn "arn:aws:iam::$account:role/$1" \
-    --action-names "$2" --resource-arns "$3" --query 'EvaluationResults[0].EvalDecision' --output text
+  local role="$1" action="$2" resource="$3"
+  aws iam simulate-principal-policy --policy-source-arn "arn:aws:iam::$account:role/$role" \
+    --action-names "$action" --resource-arns "$resource" --query 'EvaluationResults[0].EvalDecision' --output text
 }
 if simulate dam-asset-publish s3:GetObject "arn:aws:s3:::$(bucket quarantine)/x" >"$WORK/sim" 2>"$WORK/err"; then
   for case in \
@@ -286,7 +307,7 @@ fi
 # 16. API bez tokenu i z obcym tokenem
 check "16. bez tokenu → 401" test "$(api - GET /me)" = 401
 forged_jwt="$(printf '{"alg":"RS256","kid":"x"}' | base64 | tr -d '=\n' | tr '/+' '_-').$(printf '{"sub":"x","cognito:groups":["admin"],"iss":"https://cognito-idp.eu-central-1.amazonaws.com/eu-central-1_FAKE"}' | base64 | tr -d '=\n' | tr '/+' '_-').c2lnbmF0dXJl"
-check "16. token innej puli → 401" test "$(curl -sS -o /dev/null -w '%{http_code}' -H "authorization: Bearer $forged_jwt" "$API/me")" = 401
+check "16. token innej puli → 401" test "$(curl -sS -o /dev/null -w "$HTTP_CODE" -H "authorization: Bearer $forged_jwt" "$API/me")" = 401
 
 echo
 echo "Wynik: ${#PASSED[@]} OK, ${#FAILED[@]} błędów."
