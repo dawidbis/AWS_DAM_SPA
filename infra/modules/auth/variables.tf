@@ -31,3 +31,9 @@ variable "deletion_protection" {
   type        = bool
   default     = false
 }
+
+variable "create_e2e_client" {
+  description = "Tworzy klienta Cognito dla testów e2e (logowanie administracyjne)."
+  type        = bool
+  default     = false
+}

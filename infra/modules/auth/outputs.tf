@@ -23,3 +23,8 @@ output "domain_url" {
 output "group_names" {
   value = sort(keys(aws_cognito_user_group.this))
 }
+
+output "e2e_client_id" {
+  description = "Klient testów e2e (pusty, gdy wyłączony)."
+  value       = one(aws_cognito_user_pool_client.e2e[*].id)
+}

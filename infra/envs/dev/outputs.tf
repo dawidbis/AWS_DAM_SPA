@@ -58,3 +58,16 @@ output "scanner_repository_url" {
 output "scan_dlq_url" {
   value = module.scanner.dlq_url
 }
+
+output "cognito_e2e_client_id" {
+  description = "Klient Cognito testów e2e (tests/e2e/run.sh)."
+  value       = module.auth.e2e_client_id
+}
+
+output "incidents_table" {
+  value = module.data.incidents_table_name
+}
+
+output "scan_state_machine_arn" {
+  value = module.scanner.state_machine_arn
+}

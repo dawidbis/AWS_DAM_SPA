@@ -71,6 +71,8 @@ module "auth" {
     "http://localhost:4200/",
   ]
 
+  create_e2e_client = true
+
   # Grupy A–D z rozdziału 4 dokumentu projektu.
   groups = {
     admin       = { description = "A: media manager, dział komunikacji", precedence = 1 }
@@ -323,7 +325,7 @@ module "api" {
   name            = local.name_prefix
   allowed_origins = local.spa_origins
   jwt_issuer      = module.auth.issuer_url
-  jwt_audience    = [module.auth.client_id]
+  jwt_audience    = compact([module.auth.client_id, module.auth.e2e_client_id])
 
   routes = {
     "GET /me"                          = { function_name = module.api_me.function_name, function_arn = module.api_me.function_arn }

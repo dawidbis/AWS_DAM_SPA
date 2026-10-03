@@ -218,4 +218,46 @@ mod tests {
             MAX_IMAGE_BYTES + 1
         )));
     }
+
+    /// Pliki z tests/security-fixtures (te same, które wgrywa test e2e).
+    mod fixtures {
+        use super::*;
+
+        macro_rules! fixture {
+            ($name:literal) => {
+                include_bytes!(concat!("../../../../tests/security-fixtures/", $name)).as_slice()
+            };
+        }
+
+        fn check(bytes: &[u8], declared: &str) -> ValidationOutcome {
+            validate(bytes, declared, bytes.len() as u64)
+        }
+
+        #[test]
+        fn photo_and_exif_payload_pass_validation() {
+            assert!(matches!(
+                check(fixture!("photo.jpg"), "image/jpeg"),
+                ValidationOutcome::Valid {
+                    width: 640,
+                    height: 480,
+                    ..
+                }
+            ));
+            assert!(matches!(
+                check(fixture!("exif-xss.jpg"), "image/jpeg"),
+                ValidationOutcome::Valid { .. }
+            ));
+            assert!(matches!(
+                check(fixture!("polyglot.png"), "image/png"),
+                ValidationOutcome::Valid { .. }
+            ));
+        }
+
+        #[test]
+        fn attack_files_are_rejected() {
+            assert!(is_rejected(&check(fixture!("svg-script.svg"), "image/png")));
+            assert!(is_rejected(&check(fixture!("exe-renamed.jpg"), "image/jpeg")));
+            assert!(is_rejected(&check(fixture!("bomb.png"), "image/png")));
+        }
+    }
 }

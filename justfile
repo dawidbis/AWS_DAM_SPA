@@ -102,3 +102,7 @@ invoke-hello name="Kibic":
     aws lambda invoke --function-name matchday-dam-{{env}}-hello-world \
         --cli-binary-format raw-in-base64-out \
         --payload '{"name": "{{name}}"}' /dev/stdout
+
+# Testy e2e scenariuszy z rozdziału 12 na dev (wymaga sesji AWS administratora)
+e2e:
+    ./tests/e2e/run.sh

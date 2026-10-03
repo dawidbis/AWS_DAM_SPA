@@ -12,7 +12,7 @@ use serde::Serialize;
 use shared::assets::{asset_pk, now_millis};
 use shared::http::{self, ApiError};
 use shared::multipart::{self, PART_URL_TTL, PresignedPart, quarantine_key};
-use shared::upload::InitUploadRequest;
+use shared::upload::{InitUploadRequest, parse_init_request};
 use shared::{AssetStatus, UserGroup};
 use uuid::Uuid;
 
@@ -39,8 +39,9 @@ const UPLOADERS: &[UserGroup] = &[UserGroup::Admin, UserGroup::Contributor];
 async fn handle(app: &App, request: &Request) -> Result<(StatusCode, InitUploadResponse), ApiError> {
     let caller = http::caller(request)?;
     caller.require_any_group(UPLOADERS)?;
-    let spec = http::json_body::<InitUploadRequest>(request)?
-        .validate()
+    let body = http::json_body::<serde_json::Value>(request)?;
+    let spec = parse_init_request(&body)
+        .and_then(InitUploadRequest::validate)
         .map_err(|error| ApiError::BadRequest(error.to_string()))?;
 
     let asset_id = Uuid::new_v4().to_string();

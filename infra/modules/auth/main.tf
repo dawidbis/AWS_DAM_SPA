@@ -118,3 +118,29 @@ resource "aws_cognito_managed_login_branding" "spa" {
 
   use_cognito_provided_values = true
 }
+
+# Klient testów e2e (tests/e2e): logowanie administracyjne (AdminInitiateAuth),
+# które wymaga poświadczeń AWS z uprawnieniem cognito-idp:AdminInitiateAuth.
+# Przeglądarka nie może go użyć, a SPA nadal loguje się tylko przez managed login.
+resource "aws_cognito_user_pool_client" "e2e" {
+  count = var.create_e2e_client ? 1 : 0
+
+  name            = "${var.name}-e2e"
+  user_pool_id    = aws_cognito_user_pool.this.id
+  generate_secret = false
+
+  explicit_auth_flows = ["ALLOW_ADMIN_USER_PASSWORD_AUTH", "ALLOW_REFRESH_TOKEN_AUTH"]
+
+  access_token_validity  = 15
+  id_token_validity      = 15
+  refresh_token_validity = 1
+
+  token_validity_units {
+    access_token  = "minutes"
+    id_token      = "minutes"
+    refresh_token = "hours"
+  }
+
+  prevent_user_existence_errors = "ENABLED"
+  enable_token_revocation       = true
+}

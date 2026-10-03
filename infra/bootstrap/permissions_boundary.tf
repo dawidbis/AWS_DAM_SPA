@@ -74,6 +74,7 @@ data "aws_iam_policy_document" "permissions_boundary" {
       "iam:*PolicyVersion",
       "iam:TagPolicy",
       "iam:UntagPolicy",
+      "iam:SimulatePrincipalPolicy",
     ]
     resources = [
       "${local.iam_prefix}:role/dam-*",
