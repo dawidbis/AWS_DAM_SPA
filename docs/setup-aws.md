@@ -168,6 +168,10 @@ Testy scenariuszy z rozdziału 12 (`tests/e2e/run.sh`) zakładają tymczasowych 
 
 Nagłówki CloudFront: CSP (`script-src 'self'`, `frame-ancestors 'none'`), HSTS, `X-Content-Type-Options`, `Permissions-Policy`. Sprawdzenie: `curl -sI <frontend_url> | grep -i -E 'content-security|strict-transport|x-content-type'`.
 
+## 14. Usuwanie assetów
+
+A usuwa asset przyciskiem **Usuń** w galerii albo w panelu administracji (z potwierdzeniem). `DELETE /assets/{id}` usuwa wersję po CDR, miniaturę i podgląd oraz rekord w DynamoDB. Buckety mają wersjonowanie, więc plik można odzyskać przez 30 dni z poziomu konsoli S3 (wersje nieaktualne). Assetów zainfekowanych (dowód incydentu) i tych w trakcie skanowania nie da się usunąć (409).
+
 ## Hamulec kosztów
 
 ```bash

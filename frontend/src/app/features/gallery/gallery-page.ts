@@ -3,6 +3,7 @@ import { RouterLink } from '@angular/router';
 
 import { AssetPager } from '../../core/api/asset-pager';
 import { AssetsService } from '../../core/api/assets.service';
+import { DeleteAssetService } from '../../core/api/delete-asset.service';
 import { DownloadService } from '../../core/api/download.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { AssetCard } from '../assets/asset-card';
@@ -39,6 +40,15 @@ import { AssetCard } from '../assets/asset-card';
       @if (downloads.error(); as error) {
         <div class="alert alert-error mb-4">{{ error }}</div>
       }
+      @if (deletion.message(); as message) {
+        <div
+          class="alert mb-4"
+          [class.alert-success]="message.ok"
+          [class.alert-error]="!message.ok"
+        >
+          {{ message.text }}
+        </div>
+      }
       @switch (pager.state()) {
         @case ('error') {
           <div class="alert alert-error">Nie udało się wczytać galerii.</div>
@@ -55,6 +65,16 @@ import { AssetCard } from '../assets/asset-card';
                     (click)="downloads.start(asset.assetId)"
                   >
                     Pobierz
+                  </button>
+                }
+                @if (canDelete) {
+                  <button
+                    class="btn btn-sm btn-error btn-outline"
+                    type="button"
+                    [disabled]="deletion.pending() === asset.assetId"
+                    (click)="deletion.remove(asset, () => pager.remove(asset.assetId))"
+                  >
+                    Usuń
                   </button>
                 }
               </app-asset-card>
@@ -79,11 +99,13 @@ import { AssetCard } from '../assets/asset-card';
 export class GalleryPage {
   protected readonly auth = inject(AuthService);
   protected readonly downloads = inject(DownloadService);
+  protected readonly deletion = inject(DeleteAssetService);
   private readonly assets = inject(AssetsService);
 
   protected readonly canBrowse = this.auth.hasAnyGroup(['admin', 'staff', 'viewer']);
   /** UX: pobieranie i tak autoryzuje API (D dostaje 403). */
   protected readonly canDownload = this.auth.hasAnyGroup(['admin', 'staff']);
+  protected readonly canDelete = this.auth.hasAnyGroup(['admin']);
   protected readonly pager = new AssetPager((cursor) => this.assets.list('gallery', cursor));
 
   constructor() {

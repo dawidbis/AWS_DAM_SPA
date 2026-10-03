@@ -162,6 +162,29 @@ pub const fn status_for_uploader(status: AssetStatus) -> Option<AssetStatus> {
     }
 }
 
+/// Odpowiedź `DELETE /assets/{assetId}`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct AssetDeletedResponse {
+    pub asset_id: String,
+}
+
+/// Czy asset w danym statusie można usunąć. Nie usuwamy assetów, które
+/// pipeline jeszcze przetwarza (`UPLOADING`, `QUARANTINED`, `SCANNING`), ani
+/// zainfekowanych: plik w `infected` i rekord to dowód incydentu.
+#[must_use]
+pub const fn can_delete(status: AssetStatus) -> bool {
+    matches!(
+        status,
+        AssetStatus::CleanDraft
+            | AssetStatus::Published
+            | AssetStatus::Archived
+            | AssetStatus::Rejected
+            | AssetStatus::ScanFailed
+    )
+}
+
 /// Czy wywołujący może pobrać oryginał assetu w danym statusie.
 /// A: opublikowane i czekające na publikację, B: tylko opublikowane.
 #[must_use]
@@ -374,6 +397,20 @@ mod tests {
         );
         assert!(AssetView::Gallery.allowed_groups().contains(&UserGroup::Viewer));
         assert!(!can_download(&viewer, AssetStatus::Published));
+    }
+
+    #[test]
+    fn evidence_and_assets_in_progress_cannot_be_deleted() {
+        assert!(can_delete(AssetStatus::Published));
+        assert!(can_delete(AssetStatus::ScanFailed));
+        for status in [
+            AssetStatus::Infected,
+            AssetStatus::Uploading,
+            AssetStatus::Quarantined,
+            AssetStatus::Scanning,
+        ] {
+            assert!(!can_delete(status), "{status}");
+        }
     }
 
     #[test]

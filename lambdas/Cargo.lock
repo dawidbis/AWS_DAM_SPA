@@ -47,6 +47,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "api-asset-delete"
+version = "0.1.0"
+dependencies = [
+ "aws-config",
+ "aws-sdk-dynamodb",
+ "aws-sdk-s3",
+ "lambda_http",
+ "serde",
+ "serde_json",
+ "shared",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "api-asset-publish"
 version = "0.1.0"
 dependencies = [

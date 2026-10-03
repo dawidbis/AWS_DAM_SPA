@@ -309,6 +309,12 @@ check "16. bez tokenu → 401" test "$(api - GET /me)" = 401
 forged_jwt="$(printf '{"alg":"RS256","kid":"x"}' | base64 | tr -d '=\n' | tr '/+' '_-').$(printf '{"sub":"x","cognito:groups":["admin"],"iss":"https://cognito-idp.eu-central-1.amazonaws.com/eu-central-1_FAKE"}' | base64 | tr -d '=\n' | tr '/+' '_-').c2lnbmF0dXJl"
 check "16. token innej puli → 401" test "$(curl -sS -o /dev/null -w "$HTTP_CODE" -H "authorization: Bearer $forged_jwt" "$API/me")" = 401
 
+# Usuwanie assetów (A): dowód incydentu zostaje, C nie może usuwać.
+check "Usuwanie: C nie usunie assetu → 403" test "$(api contributor DELETE "/assets/$traversal")" = 403
+check "Usuwanie: zainfekowany asset zostaje → 409" test "$(api admin DELETE "/assets/$eicar")" = 409
+check "Usuwanie: A usuwa asset → 200" test "$(api admin DELETE "/assets/$traversal")" = 200
+check "Usuwanie: rekord i plik usunięte" bash -c "[[ '$(status_of "$traversal")' == None && \$(aws s3api list-objects-v2 --bucket '$(bucket clean)' --prefix '$traversal' --query KeyCount) == 0 ]]"
+
 echo
 echo "Wynik: ${#PASSED[@]} OK, ${#FAILED[@]} błędów."
 if ((${#FAILED[@]})); then

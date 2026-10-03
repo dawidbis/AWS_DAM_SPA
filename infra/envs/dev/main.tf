@@ -319,6 +319,45 @@ module "asset_rescan" {
   }
 }
 
+# Usuwanie assetu przez A: pliki w clean/renditions/kwarantannie i rekord.
+# Bez dostępu do bucketu infected (dowody incydentów zostają).
+data "aws_iam_policy_document" "asset_delete" {
+  statement {
+    sid       = "ReadAndDeleteAsset"
+    actions   = ["dynamodb:GetItem", "dynamodb:DeleteItem"]
+    resources = [module.data.assets_table_arn]
+  }
+
+  statement {
+    sid     = "DeleteAssetFiles"
+    actions = ["s3:DeleteObject"]
+    resources = [
+      "${module.storage.bucket_arns["clean"]}/*",
+      "${module.storage.bucket_arns["renditions"]}/*",
+      "${module.storage.bucket_arns["quarantine"]}/*",
+    ]
+  }
+}
+
+module "asset_delete" {
+  source = "../../modules/rust-lambda"
+
+  name                     = "asset-delete"
+  function_name            = "${local.name_prefix}-asset-delete"
+  description              = "DELETE /assets/{assetId}: usunięcie assetu przez A (bez zainfekowanych)"
+  zip_path                 = "${var.lambda_artifacts_dir}/api-asset-delete/bootstrap.zip"
+  permissions_boundary_arn = data.aws_iam_policy.permissions_boundary.arn
+
+  policies = { main = data.aws_iam_policy_document.asset_delete.json }
+
+  environment = {
+    ASSETS_TABLE      = module.data.assets_table_name
+    QUARANTINE_BUCKET = module.storage.bucket_names["quarantine"]
+    CLEAN_BUCKET      = module.storage.bucket_names["clean"]
+    RENDITIONS_BUCKET = module.storage.bucket_names["renditions"]
+  }
+}
+
 module "api" {
   source = "../../modules/http-api"
 
@@ -336,5 +375,6 @@ module "api" {
     "GET /assets/{assetId}/download"   = { function_name = module.assets_read.function_name, function_arn = module.assets_read.function_arn }
     "POST /assets/{assetId}/publish"   = { function_name = module.asset_publish.function_name, function_arn = module.asset_publish.function_arn }
     "POST /assets/{assetId}/rescan"    = { function_name = module.asset_rescan.function_name, function_arn = module.asset_rescan.function_arn }
+    "DELETE /assets/{assetId}"         = { function_name = module.asset_delete.function_name, function_arn = module.asset_delete.function_arn }
   }
 }

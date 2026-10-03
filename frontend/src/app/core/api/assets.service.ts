@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
 import { RUNTIME_CONFIG } from '../config/runtime-config';
+import { AssetDeletedResponse } from './generated-types/AssetDeletedResponse';
 import { AssetListResponse } from './generated-types/AssetListResponse';
 import { AssetView } from './generated-types/AssetView';
 import { DownloadResponse } from './generated-types/DownloadResponse';
@@ -44,6 +45,13 @@ export class AssetsService {
     return this.http.post<AssetStatusResponse>(
       `${this.apiUrl}/assets/${encodeURIComponent(assetId)}/rescan`,
       {},
+    );
+  }
+
+  /** Usunięcie assetu (A). Zainfekowanych i przetwarzanych API nie usunie. */
+  remove(assetId: string): Observable<AssetDeletedResponse> {
+    return this.http.delete<AssetDeletedResponse>(
+      `${this.apiUrl}/assets/${encodeURIComponent(assetId)}`,
     );
   }
 }

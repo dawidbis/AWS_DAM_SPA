@@ -2,6 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 
 import { AssetPager } from '../../core/api/asset-pager';
 import { AssetsService } from '../../core/api/assets.service';
+import { DeleteAssetService } from '../../core/api/delete-asset.service';
 import { DownloadService } from '../../core/api/download.service';
 import { AssetCard } from '../assets/asset-card';
 
@@ -23,6 +24,11 @@ import { AssetCard } from '../assets/asset-card';
         {{ message.text }}
       </div>
     }
+    @if (deletion.message(); as message) {
+      <div class="alert mb-4" [class.alert-success]="message.ok" [class.alert-error]="!message.ok">
+        {{ message.text }}
+      </div>
+    }
     @if (downloads.error(); as error) {
       <div class="alert alert-error mb-4">{{ error }}</div>
     }
@@ -40,6 +46,14 @@ import { AssetCard } from '../assets/asset-card';
             (click)="downloads.start(asset.assetId)"
           >
             Pobierz
+          </button>
+          <button
+            class="btn btn-sm btn-error btn-outline"
+            type="button"
+            [disabled]="deletion.pending() === asset.assetId"
+            (click)="deletion.remove(asset, () => pager.remove(asset.assetId))"
+          >
+            Usuń
           </button>
           <button
             class="btn btn-sm btn-primary"
@@ -78,6 +92,14 @@ import { AssetCard } from '../assets/asset-card';
       @for (asset of failed.items(); track asset.assetId) {
         <app-asset-card [asset]="asset" [showStatus]="true">
           <button
+            class="btn btn-sm btn-error btn-outline"
+            type="button"
+            [disabled]="deletion.pending() === asset.assetId"
+            (click)="deletion.remove(asset, () => failed.remove(asset.assetId))"
+          >
+            Usuń
+          </button>
+          <button
             class="btn btn-sm btn-warning"
             type="button"
             [disabled]="rescanning() === asset.assetId"
@@ -99,6 +121,7 @@ import { AssetCard } from '../assets/asset-card';
 })
 export class AdminPage {
   protected readonly downloads = inject(DownloadService);
+  protected readonly deletion = inject(DeleteAssetService);
   private readonly assets = inject(AssetsService);
 
   protected readonly pager = new AssetPager((cursor) => this.assets.list('drafts', cursor));
