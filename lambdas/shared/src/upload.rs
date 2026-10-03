@@ -62,6 +62,35 @@ pub enum UploadValidationError {
     InvalidFilename,
     #[error("Tytuł może mieć maksymalnie {MAX_TITLE_CHARS} znaków")]
     TitleTooLong,
+    #[error("Niepoprawne pole {0}")]
+    Schema(String),
+}
+
+/// JSON Schema żądania `POST /uploads` (walidacja metadanych od
+/// użytkownika, rozdział 7.2). Ten sam plik leży w repo jako dokumentacja.
+pub const INIT_UPLOAD_SCHEMA: &str = include_str!("../schemas/upload-init.schema.json");
+
+static INIT_UPLOAD_VALIDATOR: std::sync::LazyLock<jsonschema::Validator> = std::sync::LazyLock::new(|| {
+    let schema = serde_json::from_str(INIT_UPLOAD_SCHEMA).expect("schemat upload-init to poprawny JSON");
+    jsonschema::validator_for(&schema).expect("schemat upload-init jest poprawny")
+});
+
+/// Waliduje ciało `POST /uploads` schematem i dopiero potem je deserializuje.
+/// Komunikat błędu wskazuje pole, ale nie powtarza wartości od klienta.
+///
+/// # Errors
+///
+/// [`UploadValidationError::Schema`] z ścieżką pierwszego niepoprawnego pola.
+pub fn parse_init_request(body: &serde_json::Value) -> Result<InitUploadRequest, UploadValidationError> {
+    if let Some(error) = INIT_UPLOAD_VALIDATOR.iter_errors(body).next() {
+        let path = error.instance_path().to_string();
+        return Err(UploadValidationError::Schema(if path.is_empty() {
+            "/".to_owned()
+        } else {
+            path
+        }));
+    }
+    serde_json::from_value(body.clone()).map_err(|_| UploadValidationError::Schema("/".to_owned()))
 }
 
 impl InitUploadRequest {
@@ -181,6 +210,55 @@ fn sanitize_display_text(text: &str, max_chars: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    mod schema {
+        use super::*;
+        use serde_json::json;
+
+        fn schema() -> serde_json::Value {
+            serde_json::from_str(INIT_UPLOAD_SCHEMA).unwrap()
+        }
+
+        #[test]
+        fn schema_limits_match_rust_constants() {
+            let schema = schema();
+            let props = &schema["properties"];
+            assert_eq!(props["size"]["maximum"], json!(MAX_UPLOAD_BYTES));
+            assert_eq!(props["title"]["maxLength"], json!(MAX_TITLE_CHARS));
+            assert_eq!(props["contentType"]["enum"], json!(ALLOWED_CONTENT_TYPES));
+        }
+
+        #[test]
+        fn accepts_a_valid_request() {
+            let body = json!({ "filename": "gol.jpg", "size": 1024, "contentType": "image/jpeg", "title": "Gol w 90. minucie" });
+            assert!(parse_init_request(&body).is_ok());
+        }
+
+        #[test]
+        fn rejects_script_in_title() {
+            // Scenariusz 8.
+            let body = json!({ "filename": "a.jpg", "size": 1, "contentType": "image/jpeg", "title": "<script>alert(1)</script>" });
+            assert_eq!(
+                parse_init_request(&body).unwrap_err(),
+                UploadValidationError::Schema("/title".to_owned())
+            );
+        }
+
+        #[test]
+        fn rejects_unknown_fields_wrong_types_and_control_chars() {
+            for body in [
+                json!({ "filename": "a.jpg", "size": 1, "contentType": "image/jpeg", "uploaderId": "someone-else" }),
+                json!({ "filename": "a.jpg", "size": "1", "contentType": "image/jpeg" }),
+                json!({ "filename": "a\u{0}.jpg", "size": 1, "contentType": "image/jpeg" }),
+                json!({ "filename": "a.svg", "size": 1, "contentType": "image/svg+xml" }),
+                json!({ "filename": "a.jpg", "size": MAX_UPLOAD_BYTES + 1, "contentType": "image/jpeg" }),
+                json!({ "size": 1, "contentType": "image/jpeg" }),
+                json!([]),
+            ] {
+                assert!(parse_init_request(&body).is_err(), "{body}");
+            }
+        }
+    }
 
     fn request(filename: &str, size: u64, content_type: &str) -> InitUploadRequest {
         InitUploadRequest {

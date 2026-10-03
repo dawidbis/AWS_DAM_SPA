@@ -368,4 +368,37 @@ mod tests {
             "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
         );
     }
+
+    /// Pliki z tests/security-fixtures (te same, które wgrywa test e2e).
+    mod fixtures {
+        use super::*;
+
+        macro_rules! fixture {
+            ($name:literal) => {
+                include_bytes!(concat!("../../../../tests/security-fixtures/", $name)).as_slice()
+            };
+        }
+
+        const XSS: &[u8] = b"<script>alert(document.domain)</script>";
+
+        #[test]
+        fn exif_xss_is_removed() {
+            let disarmed = disarm(fixture!("exif-xss.jpg"), "image/jpeg").unwrap();
+            assert!(!contains(&disarmed.bytes, XSS));
+            // Pola z nawiasami kątowymi po sanityzacji nie zawierają znacznika.
+            assert!(
+                disarmed
+                    .metadata
+                    .artist
+                    .as_deref()
+                    .is_none_or(|a| !a.contains('<'))
+            );
+        }
+
+        #[test]
+        fn polyglot_payload_is_removed() {
+            let disarmed = disarm(fixture!("polyglot.png"), "image/png").unwrap();
+            assert!(!contains(&disarmed.bytes, b"<html>"));
+        }
+    }
 }

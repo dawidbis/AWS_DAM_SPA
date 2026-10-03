@@ -152,6 +152,22 @@ Po CDR krok `Renditions` zapisuje w buckecie `matchday-dam-dev-renditions` minia
 2. `+staff` w „Galerii” widzi miniaturę i może pobrać oryginał.
 3. `+sponsor` (D) w „Galerii” widzi ten sam asset jako podgląd z napisem „KS MATCHDAY PODGLAD”, bez przycisku „Pobierz”. Assety opublikowane przed tym krokiem nie mają podglądów, więc D ich nie widzi.
 
+## 13. Testy e2e i nagłówki bezpieczeństwa (etap 2)
+
+Testy scenariuszy z rozdziału 12 (`tests/e2e/run.sh`) zakładają tymczasowych użytkowników A–D, wgrywają pliki z `tests/security-fixtures/` i sprawdzają wynik w DynamoDB, S3 i API. Po przebiegu usuwają użytkowników i dane testowe. Wyjątek to plik EICAR w `infected` (Object Lock), a na `ALERT_EMAIL` przychodzi alert.
+
+1. **Jednorazowo**, dla scenariusza 15 (symulacja polityk IAM): zastosuj zmiany bootstrapu w CloudShell jako admin, tak jak w kroku 3. Dochodzi uprawnienie `iam:SimulatePrincipalPolicy` dla ról `dam-*` w roli deployu i w permission boundary:
+   ```bash
+   cd AWS_DAM_SPA && git pull
+   terraform -chdir=infra/bootstrap init -backend-config="bucket=<TF_STATE_BUCKET>"
+   terraform -chdir=infra/bootstrap apply
+   ```
+   Bez tego scenariusz 15 zostaje pominięty z ostrzeżeniem, a pozostałe działają.
+2. Uruchom testy: GitHub → Actions → **E2E (rozdział 12)** → Run workflow. Lokalnie w CloudShell: `just e2e`.
+3. Wynik to lista scenariuszy z ✔/✘. Pierwszy przebieg po deployu trwa dłużej (zimny start ClamAV).
+
+Nagłówki CloudFront: CSP (`script-src 'self'`, `frame-ancestors 'none'`), HSTS, `X-Content-Type-Options`, `Permissions-Policy`. Sprawdzenie: `curl -sI <frontend_url> | grep -i -E 'content-security|strict-transport|x-content-type'`.
+
 ## Hamulec kosztów
 
 ```bash

@@ -92,11 +92,51 @@ data "aws_cloudfront_cache_policy" "optimized" {
   name = "Managed-CachingOptimized"
 }
 
+data "aws_region" "current" {}
+
+locals {
+  region = data.aws_region.current.region
+
+  # Content Security Policy SPA (rozdział 7.2). Skrypty wyłącznie z własnej
+  # domeny (Angular bez eval i bez skryptów inline: inlineCritical wyłączone
+  # w angular.json). Style 'unsafe-inline', bo Angular wstrzykuje style
+  # komponentów jako <style>; nonce wymagałby renderowania po stronie serwera.
+  # Hosty API, Cognito i S3 jako wzorce regionu: dokładne adresy zależą od
+  # zasobów, które same zależą od adresu CloudFront (cykl w Terraform).
+  content_security_policy = join("; ", [
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: https://*.s3.${local.region}.amazonaws.com",
+    "connect-src 'self' https://*.execute-api.${local.region}.amazonaws.com https://*.auth.${local.region}.amazoncognito.com https://cognito-idp.${local.region}.amazonaws.com https://*.s3.${local.region}.amazonaws.com",
+    "worker-src 'self'",
+    "font-src 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+    "upgrade-insecure-requests",
+  ])
+}
+
 resource "aws_cloudfront_response_headers_policy" "security" {
   name    = "${var.name}-security-headers"
-  comment = "Nagłówki bezpieczeństwa SPA (CSP dochodzi w etapie 2)"
+  comment = "Nagłówki bezpieczeństwa SPA: CSP, HSTS, nosniff, frame-ancestors"
+
+  custom_headers_config {
+    items {
+      header   = "Permissions-Policy"
+      value    = "camera=(), microphone=(), geolocation=(), payment=()"
+      override = true
+    }
+  }
 
   security_headers_config {
+    content_security_policy {
+      content_security_policy = local.content_security_policy
+      override                = true
+    }
+
     strict_transport_security {
       access_control_max_age_sec = 31536000
       include_subdomains         = true

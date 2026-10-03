@@ -1,0 +1,51 @@
+name: E2E (rozdział 12)
+
+# Testy e2e scenariuszy bezpieczeństwa na środowisku dev. Uruchamiane ręcznie
+# (Actions → E2E → Run workflow), bo wgrywają plik EICAR: każdy przebieg
+# zostawia dowód w buckecie infected (Object Lock) i wysyła alert na ALERT_EMAIL.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-dev
+  cancel-in-progress: false
+
+env:
+  TF_VERSION: "~1.16.0"
+  TF_DIR: infra/envs/dev
+
+jobs:
+  e2e:
+    name: Scenariusze bezpieczeństwa (dev)
+    if: vars.AWS_DEPLOY_ROLE_ARN != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write # OIDC do AWS (rola dam-github-deploy)
+    steps:
+      # Akcje przypięte do pełnego SHA commita (tag można przesunąć).
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: gh-e2e-${{ github.run_id }}
+
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      # Wartości z kontekstu GitHub przez env, nie wstawiane w skrypt (script injection).
+      - name: terraform init
+        env:
+          TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+        run: terraform -chdir="$TF_DIR" init -input=false -backend-config="bucket=$TF_STATE_BUCKET"
+
+      - name: Testy e2e
+        run: ./tests/e2e/run.sh

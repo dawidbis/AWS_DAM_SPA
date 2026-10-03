@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://matchday-dam.invalid/schemas/upload-init.schema.json",
+  "title": "POST /uploads",
+  "description": "Metadane od użytkownika przy rozpoczęciu uploadu (rozdział 7.2). Limity muszą być zgodne ze stałymi w lambdas/shared/src/upload.rs (pilnuje tego test).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["filename", "size", "contentType"],
+  "properties": {
+    "filename": {
+      "description": "Nazwa pliku tylko do wyświetlenia; klucz S3 nadaje serwer.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "pattern": "^[^\\x00-\\x1F\\x7F]+$"
+    },
+    "size": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 209715200
+    },
+    "contentType": {
+      "enum": ["image/jpeg", "image/png", "image/webp"]
+    },
+    "title": {
+      "description": "Bez znaków sterujących i nawiasów kątowych (scenariusz 8).",
+      "type": "string",
+      "maxLength": 120,
+      "pattern": "^[^<>\\x00-\\x1F\\x7F]*$"
+    }
+  }
+}

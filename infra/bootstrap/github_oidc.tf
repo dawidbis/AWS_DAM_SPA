@@ -184,6 +184,14 @@ data "aws_iam_policy_document" "github_deploy_iam" {
     resources = ["${local.iam_prefix}:policy/dam-*"]
   }
 
+  # Testy IAM w e2e (scenariusz 15): symulacja, czy rola projektu dostanie
+  # AccessDenied. Tylko odczyt, bez zmiany uprawnień.
+  statement {
+    sid       = "SimulateProjectRoles"
+    actions   = ["iam:SimulatePrincipalPolicy"]
+    resources = ["${local.iam_prefix}:role/dam-*"]
+  }
+
   statement {
     sid       = "PassProjectRolesToServices"
     actions   = ["iam:PassRole"]

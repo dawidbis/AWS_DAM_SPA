@@ -451,17 +451,17 @@ Każdy etap kończy się działającym, wdrożonym systemem. Po etapie 1 projekt
 
 **Cel:** konto, repozytorium i pipeline CI/CD gotowe, zanim powstanie pierwsza funkcja biznesowa.
 
-- [ ] Założenie konta AWS na Free Plan
-- [ ] MFA na koncie root, codzienna praca przez IAM Identity Center (lub użytkownika IAM z MFA)
-- [ ] AWS Budgets z alertami (np. 5 USD i 20 USD)
-- [ ] Monorepo z katalogami `frontend/`, `lambdas/`, `infra/`, `docs/`
-- [ ] `infra/bootstrap/`: bucket na stan Terraform, dostawca OIDC GitHub, role `dam-github-plan` i `dam-github-deploy` z permission boundary
-- [ ] `infra/envs/dev/` z backendem S3 (`use_lockfile = true`)
-- [ ] Cargo workspace z crate'em `shared` i funkcją „hello world" w Ruście
-- [ ] Wdrożenie funkcji „hello world" przez Terraform (`provided.al2023`, `arm64`)
-- [ ] `justfile` z poleceniami `build`, `deploy`, `destroy`
-- [ ] CI: `cargo fmt`, `cargo clippy`, `cargo test`, `ng lint`, `ng test`, `terraform fmt -check`, `terraform validate`, `tflint`, Checkov lub Trivy
-- [ ] Workflow `plan.yml` komentujący PR wynikiem `terraform plan`
+- [x] Założenie konta AWS na Free Plan
+- [x] MFA na koncie root, codzienna praca przez IAM Identity Center (lub użytkownika IAM z MFA)
+- [x] AWS Budgets z alertami (np. 5 USD i 20 USD)
+- [x] Monorepo z katalogami `frontend/`, `lambdas/`, `infra/`, `docs/`
+- [x] `infra/bootstrap/`: bucket na stan Terraform, dostawca OIDC GitHub, role `dam-github-plan` i `dam-github-deploy` z permission boundary
+- [x] `infra/envs/dev/` z backendem S3 (`use_lockfile = true`)
+- [x] Cargo workspace z crate'em `shared` i funkcją „hello world" w Ruście
+- [x] Wdrożenie funkcji „hello world" przez Terraform (`provided.al2023`, `arm64`)
+- [x] `justfile` z poleceniami `build`, `deploy`, `destroy`
+- [x] CI: `cargo fmt`, `cargo clippy`, `cargo test`, `ng lint`, `ng test`, `terraform fmt -check`, `terraform validate`, `tflint`, Checkov lub Trivy
+- [x] Workflow `plan.yml` komentujący PR wynikiem `terraform plan`
 
 **Gotowe, gdy:** merge do `main` automatycznie wdraża funkcję w Ruście przez GitHub Actions bez żadnych kluczy dostępowych w repozytorium.
 
@@ -497,14 +497,14 @@ Każdy etap kończy się działającym, wdrożonym systemem. Po etapie 1 projekt
 - [x] Ochrona przed bombami dekompresyjnymi: sprawdzanie wymiarów przed pełnym dekodowaniem, limit pamięci
 - [x] Lambda `renditions`: miniatury i podglądy z watermarkiem dla grupy D
 - [x] Bucket `renditions`, grupa D widzi wyłącznie podglądy
-- [ ] Walidacja metadanych JSON Schema w `upload-init` i przy edycji
+- [x] Walidacja metadanych JSON Schema w `upload-init` i przy edycji (edycja metadanych powstanie w etapie 3 i użyje tego samego mechanizmu)
 - [x] Statusy `REJECTED` i `SCAN_FAILED` (fail closed), ponowienie skanu przez admina
 - [x] Object Lock na buckecie `infected`
 - [x] Tabela `incidents`, zdarzenie `asset.infected` w EventBridge
-- [ ] Nagłówki bezpieczeństwa w CloudFront (CSP, HSTS, `X-Content-Type-Options`, `frame-ancestors`)
-- [ ] Katalog `tests/security-fixtures/` i testy z rozdziału 12
-- [ ] Testy IAM: próby niedozwolonego dostępu kończą się `AccessDenied`
-- [ ] Dokument `docs/threat-model.md`
+- [x] Nagłówki bezpieczeństwa w CloudFront (CSP, HSTS, `X-Content-Type-Options`, `frame-ancestors`)
+- [x] Katalog `tests/security-fixtures/` i testy z rozdziału 12
+- [x] Testy IAM: próby niedozwolonego dostępu kończą się `AccessDenied`
+- [x] Dokument `docs/threat-model.md`
 
 **Gotowe, gdy:** wszystkie scenariusze z rozdziału 12 przechodzą automatycznie w CI lub w teście e2e na środowisku `dev`.
 
