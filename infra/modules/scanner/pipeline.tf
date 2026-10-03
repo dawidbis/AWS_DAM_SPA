@@ -7,6 +7,7 @@
 #     HandleInfected plik do infected, INFECTED, incydent, asset.infected
 #     Validate       typ z magic bytes, deklaracja, rozmiar, wymiary z nagłówka
 #     Disarm         CDR: obraz zdekodowany i zakodowany od nowa → clean/staging
+#     Renditions     miniatura (A, B) i podgląd ze znakiem wodnym (D) → renditions
 #     FinalizeClean  wersja po CDR do clean, oryginał usunięty, CLEAN_DRAFT
 #     MarkRejected   walidacja lub CDR odrzuca plik → REJECTED
 #     MarkScanFailed każdy błąd lub timeout → SCAN_FAILED (fail closed)
@@ -203,6 +204,40 @@ module "finalize_clean" {
     ASSETS_TABLE      = var.assets_table_name
     QUARANTINE_BUCKET = var.quarantine_bucket
     CLEAN_BUCKET      = var.clean_bucket
+  }
+}
+
+data "aws_iam_policy_document" "renditions" {
+  statement {
+    sid       = "ReadReconstructed"
+    actions   = ["s3:GetObject"]
+    resources = ["${var.clean_bucket_arn}/staging/*"]
+  }
+
+  statement {
+    sid       = "WriteRenditions"
+    actions   = ["s3:PutObject"]
+    resources = ["${var.renditions_bucket_arn}/thumb/*", "${var.renditions_bucket_arn}/preview/*"]
+  }
+}
+
+module "renditions" {
+  source = "../rust-lambda"
+
+  name                     = "renditions"
+  function_name            = "${var.name_prefix}-renditions"
+  description              = "Krok scan-pipeline: miniatura i podgląd ze znakiem wodnym z wersji po CDR"
+  zip_path                 = "${var.lambda_artifacts_dir}/pipeline-renditions/bootstrap.zip"
+  permissions_boundary_arn = var.permissions_boundary_arn
+  memory_size              = 2048
+  timeout                  = local.step_timeout_s
+  log_retention_days       = var.log_retention_days
+
+  policies = { main = data.aws_iam_policy_document.renditions.json }
+
+  environment = {
+    CLEAN_BUCKET      = var.clean_bucket
+    RENDITIONS_BUCKET = var.renditions_bucket
   }
 }
 
@@ -410,7 +445,7 @@ locals {
       }
       DisarmResult = {
         Type    = "Choice"
-        Choices = [{ Condition = "{% $states.input.disarm.result = 'CLEAN' %}", Next = "FinalizeClean" }]
+        Choices = [{ Condition = "{% $states.input.disarm.result = 'CLEAN' %}", Next = "Renditions" }]
         Default = "DisarmRejected"
       }
       DisarmRejected = {
@@ -420,6 +455,19 @@ locals {
           reason  = "{% 'cdr: ' & ($exists($states.input.disarm.reason) ? $states.input.disarm.reason : 'brak wyniku') %}"
         }
         Next = "MarkRejected"
+      }
+      Renditions = {
+        Type     = "Task"
+        Resource = "arn:${local.partition}:states:::lambda:invoke"
+        Arguments = {
+          FunctionName = module.renditions.function_arn
+          Payload      = "{% $states.input %}"
+        }
+        Output         = "{% $merge([$states.input, {'renditions': $states.result.Payload}]) %}"
+        TimeoutSeconds = local.step_timeout_s + 60
+        Retry          = local.step_retry
+        Catch          = [{ ErrorEquals = ["States.ALL"], Output = local.to_scan_failed, Next = "MarkScanFailed" }]
+        Next           = "FinalizeClean"
       }
       FinalizeClean = {
         Type     = "Task"
@@ -538,7 +586,7 @@ data "aws_iam_policy_document" "pipeline" {
     resources = concat(
       local.create_lambda ? [aws_lambda_function.scan[0].arn, "${aws_lambda_function.scan[0].arn}:*"] : [],
       flatten([
-        for arn in [module.validate.function_arn, module.cdr.function_arn, module.finalize_clean.function_arn, module.handle_infected.function_arn] :
+        for arn in [module.validate.function_arn, module.cdr.function_arn, module.renditions.function_arn, module.finalize_clean.function_arn, module.handle_infected.function_arn] :
         [arn, "${arn}:*"]
       ]),
     )

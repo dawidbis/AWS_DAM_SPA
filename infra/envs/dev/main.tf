@@ -130,6 +130,8 @@ module "scanner" {
   quarantine_bucket_arn = module.storage.bucket_arns["quarantine"]
   clean_bucket          = module.storage.bucket_names["clean"]
   clean_bucket_arn      = module.storage.bucket_arns["clean"]
+  renditions_bucket     = module.storage.bucket_names["renditions"]
+  renditions_bucket_arn = module.storage.bucket_arns["renditions"]
   infected_bucket       = module.storage.bucket_names["infected"]
   infected_bucket_arn   = module.storage.bucket_arns["infected"]
 }
@@ -216,8 +218,8 @@ module "upload_lambdas" {
 }
 
 # --- Katalog: galeria, moje zgłoszenia, publikacja, pobieranie -------------------
-# dam-assets-read jest jedyną rolą z odczytem bucketu clean (polityka bucketu),
-# więc tylko ta funkcja podpisuje linki do plików.
+# dam-assets-read jest jedyną rolą API z odczytem bucketów clean i renditions
+# (polityki bucketów), więc tylko ta funkcja podpisuje linki do plików.
 
 data "aws_iam_policy_document" "assets_read" {
   statement {
@@ -231,9 +233,12 @@ data "aws_iam_policy_document" "assets_read" {
   }
 
   statement {
-    sid       = "PresignCleanObjects"
-    actions   = ["s3:GetObject"]
-    resources = ["${module.storage.bucket_arns["clean"]}/*"]
+    sid     = "PresignCleanAndRenditions"
+    actions = ["s3:GetObject"]
+    resources = [
+      "${module.storage.bucket_arns["clean"]}/*",
+      "${module.storage.bucket_arns["renditions"]}/*",
+    ]
   }
 }
 
@@ -258,8 +263,9 @@ module "assets_read" {
   policies = { main = data.aws_iam_policy_document.assets_read.json }
 
   environment = {
-    ASSETS_TABLE = module.data.assets_table_name
-    CLEAN_BUCKET = module.storage.bucket_names["clean"]
+    ASSETS_TABLE      = module.data.assets_table_name
+    CLEAN_BUCKET      = module.storage.bucket_names["clean"]
+    RENDITIONS_BUCKET = module.storage.bucket_names["renditions"]
   }
 }
 

@@ -27,4 +27,4 @@ W etapie 1 jedna Lambda `scan` robiła wszystko: zmieniała statusy, skanowała,
 
 - Free Tier Step Functions to 4000 przejść stanów miesięcznie; jeden plik to ok. 6 przejść.
 - Wykonanie przerwane timeoutem całej maszyny (bez `Catch`) zostawiłoby asset w `SCANNING`; wykrywanie takich assetów i alarmy na nieudane wykonania to etap 3.
-- Kolejne kroki to nowe stany i Lambdy bez zmian w istniejących: `Validate` i `Disarm` (CDR, ADR 0007) po skanie, `renditions` w kolejnym kroku etapu 2.
+- Kolejne kroki to nowe stany i Lambdy bez zmian w istniejących: `Validate` i `Disarm` (CDR, ADR 0007) po skanie, potem `Renditions` (miniatura i podgląd ze znakiem wodnym).

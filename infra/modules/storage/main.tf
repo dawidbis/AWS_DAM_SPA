@@ -1,7 +1,8 @@
 # Buckety na pliki od użytkowników (rozdział 9):
 #   quarantine – pliki prosto od użytkowników, czytane wyłącznie przez pipeline,
 #   clean      – zweryfikowane pliki, udostępniane przez presigned URL,
-#   infected   – zainfekowane pliki jako dowód incydentu.
+#   infected   – zainfekowane pliki jako dowód incydentu,
+#   renditions – miniatury i podglądy ze znakiem wodnym (grupa D widzi tylko je).
 # Polityki bucketów to druga linia obrony obok polityk IAM ról (rozdział 10.2).
 
 terraform {
@@ -33,6 +34,7 @@ locals {
     quarantine = { expiration_days = var.quarantine_retention_days, noncurrent_days = 1 }
     clean      = { expiration_days = null, noncurrent_days = 30 }
     infected   = { expiration_days = var.infected_retention_days, noncurrent_days = var.infected_retention_days }
+    renditions = { expiration_days = null, noncurrent_days = 7 }
   }
 }
 

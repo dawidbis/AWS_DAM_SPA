@@ -95,6 +95,27 @@ pub enum DisarmOutcome {
     Rejected { reason: String },
 }
 
+/// Wynik kroku `renditions`: miniatura (A, B) i podgląd ze znakiem wodnym
+/// (D) w buckecie `renditions`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RenditionsOutcome {
+    pub thumbnail_key: String,
+    pub preview_key: String,
+}
+
+/// Miniatura do kafelków galerii (A, B).
+#[must_use]
+pub fn thumbnail_key(asset_id: &str) -> String {
+    format!("thumb/{asset_id}.jpg")
+}
+
+/// Podgląd ze znakiem wodnym, jedyna wersja widoczna dla grupy D.
+#[must_use]
+pub fn preview_key(asset_id: &str) -> String {
+    format!("preview/{asset_id}.jpg")
+}
+
 /// Klucz zrekonstruowanego pliku w `clean` przed finalizacją.
 #[must_use]
 pub fn staging_key(asset_id: &str) -> String {
@@ -112,6 +133,8 @@ pub struct StepInput {
     pub validation: Option<ValidationOutcome>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub disarm: Option<DisarmOutcome>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub renditions: Option<RenditionsOutcome>,
 }
 
 impl StepInput {
@@ -291,6 +314,8 @@ mod tests {
             }
         );
         assert_eq!(staging_key(ID), format!("staging/{ID}"));
+        assert_eq!(thumbnail_key(ID), format!("thumb/{ID}.jpg"));
+        assert_eq!(preview_key(ID), format!("preview/{ID}.jpg"));
     }
 
     #[test]
