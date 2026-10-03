@@ -2,6 +2,6 @@
 import type { AssetStatus } from "./AssetStatus";
 
 /**
- * Odpowiedź `POST /assets/{assetId}/publish`.
+ * Odpowiedź operacji zmieniających status (`publish`, `rescan`).
  */
-export type PublishResponse = { assetId: string, status: AssetStatus, };
+export type AssetStatusResponse = { assetId: string, status: AssetStatus, };

@@ -9,7 +9,7 @@ use std::sync::Arc;
 use aws_sdk_dynamodb::types::AttributeValue;
 use lambda_http::{Error, Request, http::StatusCode, service_fn};
 use shared::assets::{StoreError, now_millis, transition};
-use shared::catalog::{PublishResponse, is_asset_id};
+use shared::catalog::{AssetStatusResponse, is_asset_id};
 use shared::http::{self, ApiError};
 use shared::{AssetStatus, UserGroup};
 
@@ -18,7 +18,7 @@ struct App {
     table: String,
 }
 
-async fn handle(app: &App, request: &Request) -> Result<(StatusCode, PublishResponse), ApiError> {
+async fn handle(app: &App, request: &Request) -> Result<(StatusCode, AssetStatusResponse), ApiError> {
     let caller = http::caller(request)?;
     caller.require_any_group(&[UserGroup::Admin])?;
     let asset_id = http::path_param(request, "assetId")?;
@@ -35,7 +35,7 @@ async fn handle(app: &App, request: &Request) -> Result<(StatusCode, PublishResp
             tracing::info!(asset_id, caller = %caller.sub, "asset published");
             Ok((
                 StatusCode::OK,
-                PublishResponse {
+                AssetStatusResponse {
                     asset_id,
                     status: AssetStatus::Published,
                 },

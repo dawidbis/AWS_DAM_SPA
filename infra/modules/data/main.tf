@@ -80,3 +80,26 @@ resource "aws_dynamodb_table" "assets" {
     enabled = false # false = klucz należący do AWS (domyślne szyfrowanie)
   }
 }
+
+# Incydenty bezpieczeństwa (rozdział 5): jeden wpis na zainfekowany asset,
+# zapisywany przez handle-infected. Dowód z adresem IP i sygnaturą.
+resource "aws_dynamodb_table" "incidents" {
+  #checkov:skip=CKV_AWS_119:Szyfrowanie kluczem należącym do AWS (bez kosztu KMS CMK, rozdział 7.3)
+  name                        = "${var.name_prefix}-incidents"
+  billing_mode                = "PAY_PER_REQUEST"
+  hash_key                    = "incidentId"
+  deletion_protection_enabled = var.deletion_protection
+
+  attribute {
+    name = "incidentId"
+    type = "S"
+  }
+
+  point_in_time_recovery {
+    enabled = true
+  }
+
+  server_side_encryption {
+    enabled = false # false = klucz należący do AWS (domyślne szyfrowanie)
+  }
+}

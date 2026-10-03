@@ -90,6 +90,9 @@ async fn handle(app: &App, request: &Request) -> Result<(StatusCode, InitUploadR
     if let Some(title) = &spec.title {
         put = put.item("title", AttributeValue::S(title.clone()));
     }
+    if let Some(ip) = http::source_ip(request) {
+        put = put.item("uploaderIp", AttributeValue::S(ip));
+    }
     if let Err(error) = put.send().await {
         // Bez rekordu w bazie upload nie ma właściciela: sprzątamy od razu.
         let _ = multipart::abort(&app.s3, &app.bucket, &key, &upload_id).await;

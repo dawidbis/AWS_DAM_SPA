@@ -8,6 +8,7 @@ pub mod auth;
 pub mod catalog;
 pub mod http;
 pub mod multipart;
+pub mod pipeline;
 pub mod status;
 pub mod telemetry;
 pub mod upload;

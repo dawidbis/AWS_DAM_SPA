@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["shared", "hello-world", "api/me", "api/upload-init", "api/upload-status", "api/upload-complete", "api/assets-read", "api/asset-publish", "pipeline/scan"]
+members = ["shared", "hello-world", "api/me", "api/upload-init", "api/upload-status", "api/upload-complete", "api/assets-read", "api/asset-publish", "api/asset-rescan", "pipeline/scan", "pipeline/start-scan", "pipeline/finalize-clean", "pipeline/handle-infected"]
 
 [workspace.package]
 edition = "2024"
@@ -17,6 +17,8 @@ aws-config = { version = "1", default-features = false, features = ["behavior-ve
 aws-sdk-dynamodb = { version = "1", default-features = false, features = ["rt-tokio", "default-https-client"] }
 aws-sdk-sns = { version = "1", default-features = false, features = ["rt-tokio", "default-https-client"] }
 aws-sdk-s3 = { version = "1", default-features = false, features = ["rt-tokio", "default-https-client"] }
+aws-sdk-sfn = { version = "1", default-features = false, features = ["rt-tokio", "default-https-client"] }
+aws-sdk-eventbridge = { version = "1", default-features = false, features = ["rt-tokio", "default-https-client"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"

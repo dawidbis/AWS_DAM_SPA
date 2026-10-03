@@ -14,7 +14,7 @@ Każdy plik z kwarantanny musi przejść skan antywirusowy, zanim trafi do galer
 - **Fail closed**: `FOUND` → `INFECTED`; `OK` → `CLEAN_DRAFT`; wszystko inne (błąd, timeout, `Heuristics.Limits.*` przy przekroczonych limitach rozmiaru) → `SCAN_FAILED`. Limity clamd (`MaxFileSize`, `MaxScanSize`) obejmują cały dopuszczalny plik (1 GB), a `AlertExceedsMax` sprawia, że niepełny skan nie wygląda na czysty.
 - **x86_64** dla tej jednej funkcji: obraz buduje się natywnie na runnerach GitHub, bez emulacji ARM (QEMU wydłużałby build kilkukrotnie). Pozostałe Lambdy zostają na arm64.
 - **Aktualizacja sygnatur = przebudowa obrazu**: przy zmianie kodu skanera i co tydzień (`schedule` w `deploy.yml`). Zgodnie z rozdziałem 14 nie pobieramy sygnatur przy każdym uruchomieniu (limity serwerów ClamAV, czas cold startu).
-- **Koszty**: 3008 MB pamięci (baza ~1,2 GB w RAM), `maximum_concurrency = 2` na wyzwalaczu SQS, ECR przechowuje 3 ostatnie obrazy.
+- **Koszty**: 3008 MB pamięci (baza ~1,2 GB w RAM), ECR przechowuje 3 ostatnie obrazy. Liczbę równoległych wykonań ogranicza wyzwalacz `start-scan` (ADR 0005).
 
 ## Rozważane alternatywy
 
@@ -25,4 +25,4 @@ Każdy plik z kwarantanny musi przejść skan antywirusowy, zanim trafi do galer
 ## Konsekwencje
 
 - Cold start z wczytaniem bazy: rzędu 20–60 s (do zmierzenia i opisania w README).
-- W etapie 1 skaner sam przenosi plik do `clean`/`infected`; w etapie 2 robią to osobne role uruchamiane przez Step Functions.
+- W etapie 1 skaner sam przenosił plik do `clean`/`infected`. Od etapu 2 jest krokiem Step Functions i tylko czyta kwarantannę; przeniesienie pliku i alerty robią osobne role (ADR 0005).

@@ -35,6 +35,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "api-asset-rescan"
+version = "0.1.0"
+dependencies = [
+ "aws-config",
+ "aws-sdk-dynamodb",
+ "aws-sdk-sfn",
+ "lambda_http",
+ "serde",
+ "serde_json",
+ "shared",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "api-assets-read"
 version = "0.1.0"
 dependencies = [
@@ -263,6 +278,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "aws-sdk-eventbridge"
+version = "1.122.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5b665bae2c80672a198b5abb9ab34d62eebb933f95281e878369a20b1d1f73f0"
+dependencies = [
+ "arc-swap",
+ "aws-credential-types",
+ "aws-runtime",
+ "aws-smithy-async",
+ "aws-smithy-http",
+ "aws-smithy-json",
+ "aws-smithy-observability",
+ "aws-smithy-runtime",
+ "aws-smithy-runtime-api",
+ "aws-smithy-schema",
+ "aws-smithy-types",
+ "aws-types",
+ "bytes",
+ "fastrand",
+ "http",
+ "regex-lite",
+ "tracing",
+]
+
+[[package]]
 name = "aws-sdk-s3"
 version = "1.152.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -299,10 +339,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "aws-sdk-sns"
-version = "1.116.0"
+name = "aws-sdk-sfn"
+version = "1.120.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c1b01780dcf63421c3dd2ba7d7274c389cf50346371b2f0b1fa98b6fbefbcab"
+checksum = "2d7e03cf1b9068864d494abe4e225f0361ca17b68678023b46f87429aae123d8"
 dependencies = [
  "arc-swap",
  "aws-credential-types",
@@ -311,13 +351,12 @@ dependencies = [
  "aws-smithy-http",
  "aws-smithy-json",
  "aws-smithy-observability",
- "aws-smithy-query",
  "aws-smithy-runtime",
  "aws-smithy-runtime-api",
  "aws-smithy-schema",
  "aws-smithy-types",
- "aws-smithy-xml",
  "aws-types",
+ "bytes",
  "fastrand",
  "http",
  "regex-lite",
@@ -1799,13 +1838,54 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13bee6c73da26345c729282832b60b0363cf3dd9f4bfd81d8551b7a1c889a113"
 
 [[package]]
-name = "pipeline-scan"
+name = "pipeline-finalize-clean"
 version = "0.1.0"
 dependencies = [
  "aws-config",
  "aws-sdk-dynamodb",
  "aws-sdk-s3",
- "aws-sdk-sns",
+ "lambda_runtime",
+ "serde",
+ "serde_json",
+ "shared",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "pipeline-handle-infected"
+version = "0.1.0"
+dependencies = [
+ "aws-config",
+ "aws-sdk-dynamodb",
+ "aws-sdk-eventbridge",
+ "aws-sdk-s3",
+ "lambda_runtime",
+ "serde",
+ "serde_json",
+ "shared",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "pipeline-scan"
+version = "0.1.0"
+dependencies = [
+ "aws-config",
+ "aws-sdk-s3",
+ "lambda_runtime",
+ "shared",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "pipeline-start-scan"
+version = "0.1.0"
+dependencies = [
+ "aws-config",
+ "aws-sdk-sfn",
  "aws_lambda_events",
  "lambda_runtime",
  "serde",

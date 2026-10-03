@@ -23,6 +23,8 @@ pub enum AssetView {
     Mine,
     /// Czyste pliki czekające na publikację (A).
     Drafts,
+    /// Pliki, których skan się nie powiódł (A): do ponowienia.
+    Failed,
 }
 
 impl AssetView {
@@ -32,6 +34,7 @@ impl AssetView {
             "gallery" => Some(Self::Gallery),
             "mine" => Some(Self::Mine),
             "drafts" => Some(Self::Drafts),
+            "failed" => Some(Self::Failed),
             _ => None,
         }
     }
@@ -42,12 +45,14 @@ impl AssetView {
         match self {
             Self::Gallery => &[UserGroup::Admin, UserGroup::Staff],
             Self::Mine => &[UserGroup::Admin, UserGroup::Contributor],
-            Self::Drafts => &[UserGroup::Admin],
+            Self::Drafts | Self::Failed => &[UserGroup::Admin],
         }
     }
 
     /// Czy lista zawiera podglądy (presigned URL do pliku z bucketu `clean`).
     /// Grupa C nie pobiera oryginałów, więc „moje zgłoszenia” są bez podglądu.
+    /// Pliki po nieudanym skanie leżą w kwarantannie, której nigdy nie
+    /// udostępniamy, więc też są bez podglądu.
     #[must_use]
     pub const fn with_previews(self) -> bool {
         matches!(self, Self::Gallery | Self::Drafts)
@@ -95,11 +100,11 @@ pub struct DownloadResponse {
     pub expires_in_seconds: u64,
 }
 
-/// Odpowiedź `POST /assets/{assetId}/publish`.
+/// Odpowiedź operacji zmieniających status (`publish`, `rescan`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 #[serde(rename_all = "camelCase")]
-pub struct PublishResponse {
+pub struct AssetStatusResponse {
     pub asset_id: String,
     pub status: AssetStatus,
 }
@@ -352,6 +357,8 @@ mod tests {
         assert!(!AssetView::Gallery.allowed_groups().contains(&UserGroup::Viewer));
         assert_eq!(AssetView::Drafts.allowed_groups(), &[UserGroup::Admin]);
         assert!(!AssetView::Mine.with_previews());
+        assert!(!AssetView::Failed.with_previews());
+        assert_eq!(AssetView::Failed.allowed_groups(), &[UserGroup::Admin]);
     }
 
     #[test]

@@ -97,7 +97,7 @@ resource "aws_s3_bucket_logging" "this" {
 }
 
 # Kwarantanna: plik czeka tylko na skan, potem znika (kopia trafia do clean
-# albo infected). Dowody incydentów trzymamy dłużej (Object Lock w etapie 2).
+# albo infected). Dowody incydentów trzymamy dłużej (Object Lock niżej).
 # Wszędzie przerywamy porzucone uploady multipart.
 resource "aws_s3_bucket_lifecycle_configuration" "this" {
   for_each = aws_s3_bucket.this
@@ -124,6 +124,24 @@ resource "aws_s3_bucket_lifecycle_configuration" "this" {
 
     abort_incomplete_multipart_upload {
       days_after_initiation = 2
+    }
+  }
+
+  depends_on = [aws_s3_bucket_versioning.this]
+}
+
+# Dowody incydentów są niezmienialne przez okres retencji (rozdział 7.2).
+# Tryb GOVERNANCE w dev: rola z s3:BypassGovernanceRetention (deploy przy
+# terraform destroy) może je usunąć; tryb COMPLIANCE nie pozwoliłby na to
+# nikomu, łącznie z rootem.
+resource "aws_s3_bucket_object_lock_configuration" "infected" {
+  bucket              = aws_s3_bucket.this["infected"].id
+  object_lock_enabled = "Enabled"
+
+  rule {
+    default_retention {
+      mode = "GOVERNANCE"
+      days = var.infected_retention_days
     }
   }
 
