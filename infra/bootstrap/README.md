@@ -2,7 +2,7 @@
 
 Jednorazowa konfiguracja konta, którą uruchamia administrator (np. w CloudShell) **przed** pierwszym deployem z GitHub Actions. Tworzy to, czego CI nie może utworzyć samo dla siebie: bucket stanu, role OIDC i granicę uprawnień. Instrukcja: [`docs/setup-aws.md`](../../docs/setup-aws.md).
 
-Stan bootstrapu jest lokalny (`terraform.tfstate` w tym katalogu u administratora) — to celowe: bootstrap tworzy bucket, w którym trzymany jest stan reszty.
+Pierwsze `apply` bootstrapu działa na stanie lokalnym (bucket stanu jeszcze nie istnieje, `backend_override.tf`), a potem stan jest przenoszony do tego samego bucketu S3 pod osobnym kluczem (kroki 3–4 w [`docs/setup-aws.md`](../../docs/setup-aws.md)). Kolejne zmiany: `terraform -chdir=infra/bootstrap init -backend-config="bucket=<TF_STATE_BUCKET>"` i `apply` z konta administratora.
 
 ## Pliki
 
@@ -34,7 +34,7 @@ Boundary nie nadaje uprawnień, tylko wyznacza ich górną granicę: efektywne u
 
 Uzasadnienie i alternatywy: [ADR 0013](../../docs/adr/0013-github-oidc-deploy-roles.md).
 
-## Uruchomienie
+## Pierwsze uruchomienie (skrót; pełne kroki ze stanem w S3: `docs/setup-aws.md` 3–5)
 
 ```bash
 cd infra/bootstrap
