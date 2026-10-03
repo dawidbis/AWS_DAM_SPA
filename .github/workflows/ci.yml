@@ -79,7 +79,7 @@ jobs:
             terraform -chdir="$dir" validate
             echo "::endgroup::"
           done
-      - uses: terraform-linters/setup-tflint@v4
+      - uses: terraform-linters/setup-tflint@v5
       - name: tflint
         env:
           GITHUB_TOKEN: ${{ github.token }}
