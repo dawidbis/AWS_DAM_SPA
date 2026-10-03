@@ -40,8 +40,11 @@ jobs:
           terraform_version: ${{ env.TF_VERSION }}
           terraform_wrapper: false
 
+      # Wartości z kontekstu GitHub przez env, nie wstawiane w skrypt (script injection).
       - name: terraform init
-        run: terraform -chdir="$TF_DIR" init -input=false -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+        env:
+          TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+        run: terraform -chdir="$TF_DIR" init -input=false -backend-config="bucket=$TF_STATE_BUCKET"
 
       - name: Testy e2e
         run: ./tests/e2e/run.sh
