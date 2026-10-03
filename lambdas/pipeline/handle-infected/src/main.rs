@@ -20,7 +20,7 @@ use serde::Serialize;
 use shared::AssetStatus;
 use shared::assets::{asset_pk, now_millis, transition_idempotent};
 use shared::http::env;
-use shared::pipeline::{ScanOutcome, StepInput, move_object, scan_attributes};
+use shared::pipeline::{Location, ScanOutcome, StepInput, move_object, scan_attributes};
 
 /// `source` i `detail-type` zdarzeń domenowych projektu.
 const EVENT_SOURCE: &str = "matchday.dam";
@@ -169,7 +169,18 @@ async fn handler(app: &App, event: LambdaEvent<StepInput>) -> Result<Output, Err
     let (signature, engine) = infected_verdict(&input)?;
     let detected_at = now_millis();
 
-    move_object(&app.s3, &app.quarantine, &app.infected, asset_id).await?;
+    move_object(
+        &app.s3,
+        Location {
+            bucket: &app.quarantine,
+            key: asset_id,
+        },
+        Location {
+            bucket: &app.infected,
+            key: asset_id,
+        },
+    )
+    .await?;
     let mut attributes = scan_attributes("INFECTED", engine, detected_at);
     attributes.push(("scanSignature", AttributeValue::S(signature.to_owned())));
     transition_idempotent(
@@ -232,8 +243,8 @@ mod tests {
     #[test]
     fn requires_an_infected_verdict() {
         let input = |scan| StepInput {
-            asset_id: "0b6f3c1e-8a2d-4f5b-9c7e-1d2a3b4c5d6e".to_owned(),
             scan,
+            ..StepInput::new("0b6f3c1e-8a2d-4f5b-9c7e-1d2a3b4c5d6e")
         };
         let infected = input(Some(ScanOutcome::Infected {
             signature: "Eicar-Test-Signature".to_owned(),

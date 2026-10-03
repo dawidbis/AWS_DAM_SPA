@@ -4,9 +4,17 @@
 #   zdarzenia S3 nie uruchomi drugiego, scenariusz 13)
 #     MarkScanning   QUARANTINED → SCANNING (warunkowy zapis DynamoDB)
 #     Scan           Lambda scan (ClamAV), wynik CLEAN / INFECTED / FAILED
-#     FinalizeClean  plik do clean, CLEAN_DRAFT
 #     HandleInfected plik do infected, INFECTED, incydent, asset.infected
+#     Validate       typ z magic bytes, deklaracja, rozmiar, wymiary z nagłówka
+#     Disarm         CDR: obraz zdekodowany i zakodowany od nowa → clean/staging
+#     FinalizeClean  wersja po CDR do clean, oryginał usunięty, CLEAN_DRAFT
+#     MarkRejected   walidacja lub CDR odrzuca plik → REJECTED
 #     MarkScanFailed każdy błąd lub timeout → SCAN_FAILED (fail closed)
+#
+# Skan antywirusowy jest przed walidacją (inaczej niż w szkicu z rozdziału
+# 3.2): znane złośliwe oprogramowanie w pliku o złym typie (np. .exe jako
+# .jpg) ma skończyć się incydentem i alertem, a nie samym odrzuceniem
+# (ADR 0007).
 #
 # Logika biznesowa jest w Lambdach; maszyna stanów odpowiada za kolejność,
 # ponowienia i obsługę błędów (rozdział 7.1). Zmiany statusów bez logiki
@@ -15,6 +23,7 @@
 locals {
   start_scan_timeout_s = 30
   step_timeout_s       = 120
+  validate_timeout_s   = 30
   event_source         = "matchday.dam"
 
   state_machine_name = "${var.name_prefix}-scan-pipeline"
@@ -75,9 +84,9 @@ resource "aws_lambda_event_source_mapping" "start_scan" {
 
 data "aws_iam_policy_document" "finalize_clean" {
   statement {
-    sid       = "MoveFromQuarantine"
+    sid       = "MoveFromStaging"
     actions   = ["s3:GetObject", "s3:DeleteObject"]
-    resources = ["${var.quarantine_bucket_arn}/*"]
+    resources = ["${var.clean_bucket_arn}/staging/*"]
   }
 
   statement {
@@ -93,10 +102,86 @@ data "aws_iam_policy_document" "finalize_clean" {
     resources = [var.clean_bucket_arn]
   }
 
+  # Oryginał od użytkownika jest usuwany, ale nigdy czytany.
+  statement {
+    sid       = "RemoveOriginal"
+    actions   = ["s3:DeleteObject"]
+    resources = ["${var.quarantine_bucket_arn}/*"]
+  }
+
   statement {
     sid       = "TransitionAsset"
     actions   = ["dynamodb:GetItem", "dynamodb:UpdateItem"]
     resources = [var.assets_table_arn]
+  }
+}
+
+data "aws_iam_policy_document" "validate" {
+  statement {
+    sid       = "ReadQuarantineHeader"
+    actions   = ["s3:GetObject"]
+    resources = ["${var.quarantine_bucket_arn}/*"]
+  }
+
+  statement {
+    sid       = "ReadDeclaredType"
+    actions   = ["dynamodb:GetItem"]
+    resources = [var.assets_table_arn]
+  }
+}
+
+module "validate" {
+  source = "../rust-lambda"
+
+  name                     = "validate"
+  function_name            = "${var.name_prefix}-validate"
+  description              = "Krok scan-pipeline: typ z magic bytes, zgodność z deklaracją, limity rozmiaru i wymiarów"
+  zip_path                 = "${var.lambda_artifacts_dir}/pipeline-validate/bootstrap.zip"
+  permissions_boundary_arn = var.permissions_boundary_arn
+  memory_size              = 256
+  timeout                  = local.validate_timeout_s
+  log_retention_days       = var.log_retention_days
+
+  policies = { main = data.aws_iam_policy_document.validate.json }
+
+  environment = {
+    ASSETS_TABLE      = var.assets_table_name
+    QUARANTINE_BUCKET = var.quarantine_bucket
+  }
+}
+
+data "aws_iam_policy_document" "cdr" {
+  statement {
+    sid       = "ReadQuarantine"
+    actions   = ["s3:GetObject"]
+    resources = ["${var.quarantine_bucket_arn}/*"]
+  }
+
+  statement {
+    sid       = "WriteStaging"
+    actions   = ["s3:PutObject"]
+    resources = ["${var.clean_bucket_arn}/staging/*"]
+  }
+}
+
+module "cdr" {
+  source = "../rust-lambda"
+
+  name                     = "cdr"
+  function_name            = "${var.name_prefix}-cdr"
+  description              = "Krok scan-pipeline: rekonstrukcja obrazu (CDR) bez metadanych i doklejonej treści"
+  zip_path                 = "${var.lambda_artifacts_dir}/pipeline-cdr/bootstrap.zip"
+  permissions_boundary_arn = var.permissions_boundary_arn
+  # Obraz do 100 MP dekodowany w pamięci (limit dekodera 1 GB) + plik do 200 MB.
+  memory_size        = 2048
+  timeout            = local.step_timeout_s
+  log_retention_days = var.log_retention_days
+
+  policies = { main = data.aws_iam_policy_document.cdr.json }
+
+  environment = {
+    QUARANTINE_BUCKET = var.quarantine_bucket
+    CLEAN_BUCKET      = var.clean_bucket
   }
 }
 
@@ -105,7 +190,7 @@ module "finalize_clean" {
 
   name                     = "finalize-clean"
   function_name            = "${var.name_prefix}-finalize-clean"
-  description              = "Krok scan-pipeline: czysty plik do clean, status CLEAN_DRAFT"
+  description              = "Krok scan-pipeline: wersja po CDR do clean, oryginał usunięty, CLEAN_DRAFT"
   zip_path                 = "${var.lambda_artifacts_dir}/pipeline-finalize-clean/bootstrap.zip"
   permissions_boundary_arn = var.permissions_boundary_arn
   memory_size              = 256
@@ -224,7 +309,7 @@ locals {
   }
 
   scan_pipeline = {
-    Comment       = "Skan pliku z kwarantanny (rozdział 3.2). Każdy błąd kończy się SCAN_FAILED."
+    Comment       = "Skan, walidacja i CDR pliku z kwarantanny (rozdział 3.2). Każdy błąd kończy się SCAN_FAILED."
     QueryLanguage = "JSONata"
     StartAt       = "AlreadyMarked"
     States = {
@@ -271,7 +356,7 @@ locals {
       Verdict = {
         Type = "Choice"
         Choices = [
-          { Condition = "{% $states.input.scan.verdict = 'CLEAN' %}", Next = "FinalizeClean" },
+          { Condition = "{% $states.input.scan.verdict = 'CLEAN' %}", Next = "Validate" },
           { Condition = "{% $states.input.scan.verdict = 'INFECTED' %}", Next = "HandleInfected" },
         ]
         Default = "ScanNotConclusive"
@@ -283,6 +368,58 @@ locals {
           reason  = "{% 'scan: ' & ($exists($states.input.scan.reason) ? $states.input.scan.reason : 'brak werdyktu') %}"
         }
         Next = "MarkScanFailed"
+      }
+      Validate = {
+        Type     = "Task"
+        Resource = "arn:${local.partition}:states:::lambda:invoke"
+        Arguments = {
+          FunctionName = module.validate.function_arn
+          Payload      = "{% $states.input %}"
+        }
+        Output         = "{% $merge([$states.input, {'validation': $states.result.Payload}]) %}"
+        TimeoutSeconds = local.validate_timeout_s + 30
+        Retry          = local.step_retry
+        Catch          = [{ ErrorEquals = ["States.ALL"], Output = local.to_scan_failed, Next = "MarkScanFailed" }]
+        Next           = "ValidationResult"
+      }
+      ValidationResult = {
+        Type    = "Choice"
+        Choices = [{ Condition = "{% $states.input.validation.result = 'VALID' %}", Next = "Disarm" }]
+        Default = "ValidationRejected"
+      }
+      ValidationRejected = {
+        Type = "Pass"
+        Output = {
+          assetId = "{% $states.input.assetId %}"
+          reason  = "{% 'validate: ' & ($exists($states.input.validation.reason) ? $states.input.validation.reason : 'brak wyniku') %}"
+        }
+        Next = "MarkRejected"
+      }
+      Disarm = {
+        Type     = "Task"
+        Resource = "arn:${local.partition}:states:::lambda:invoke"
+        Arguments = {
+          FunctionName = module.cdr.function_arn
+          Payload      = "{% $states.input %}"
+        }
+        Output         = "{% $merge([$states.input, {'disarm': $states.result.Payload}]) %}"
+        TimeoutSeconds = local.step_timeout_s + 60
+        Retry          = local.lambda_retry
+        Catch          = [{ ErrorEquals = ["States.ALL"], Output = local.to_scan_failed, Next = "MarkScanFailed" }]
+        Next           = "DisarmResult"
+      }
+      DisarmResult = {
+        Type    = "Choice"
+        Choices = [{ Condition = "{% $states.input.disarm.result = 'CLEAN' %}", Next = "FinalizeClean" }]
+        Default = "DisarmRejected"
+      }
+      DisarmRejected = {
+        Type = "Pass"
+        Output = {
+          assetId = "{% $states.input.assetId %}"
+          reason  = "{% 'cdr: ' & ($exists($states.input.disarm.reason) ? $states.input.disarm.reason : 'brak wyniku') %}"
+        }
+        Next = "MarkRejected"
       }
       FinalizeClean = {
         Type     = "Task"
@@ -309,6 +446,30 @@ locals {
         Retry          = local.step_retry
         Catch          = [{ ErrorEquals = ["States.ALL"], Output = local.to_scan_failed, Next = "MarkScanFailed" }]
         End            = true
+      }
+      MarkRejected = {
+        Type     = "Task"
+        Resource = "arn:${local.partition}:states:::dynamodb:updateItem"
+        Arguments = {
+          TableName                = var.assets_table_name
+          Key                      = local.asset_key
+          UpdateExpression         = "SET #status = :rejected, rejectReason = :reason, updatedAt = :now"
+          ConditionExpression      = "#status = :scanning"
+          ExpressionAttributeNames = { "#status" = "status" }
+          ExpressionAttributeValues = {
+            ":rejected" = { S = "REJECTED" }
+            ":scanning" = { S = "SCANNING" }
+            ":reason"   = { S = "{% $substring($states.input.reason, 0, 500) %}" }
+            ":now"      = { N = "{% $string($millis()) %}" }
+          }
+        }
+        Retry = local.dynamo_retry
+        Catch = [{ ErrorEquals = ["DynamoDB.ConditionalCheckFailedException"], Next = "Rejected" }]
+        Next  = "Rejected"
+      }
+      Rejected = {
+        Type    = "Succeed"
+        Comment = "Plik odrzucony przez walidację lub CDR (status REJECTED)"
       }
       MarkScanFailed = {
         Type     = "Task"
@@ -376,10 +537,10 @@ data "aws_iam_policy_document" "pipeline" {
     actions = ["lambda:InvokeFunction"]
     resources = concat(
       local.create_lambda ? [aws_lambda_function.scan[0].arn, "${aws_lambda_function.scan[0].arn}:*"] : [],
-      [
-        module.finalize_clean.function_arn, "${module.finalize_clean.function_arn}:*",
-        module.handle_infected.function_arn, "${module.handle_infected.function_arn}:*",
-      ],
+      flatten([
+        for arn in [module.validate.function_arn, module.cdr.function_arn, module.finalize_clean.function_arn, module.handle_infected.function_arn] :
+        [arn, "${arn}:*"]
+      ]),
     )
   }
 

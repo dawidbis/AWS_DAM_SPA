@@ -492,9 +492,9 @@ Każdy etap kończy się działającym, wdrożonym systemem. Po etapie 1 projekt
 **Cel:** ochrona przed tym, czego antywirus nie wykrywa.
 
 - [x] Step Functions `scan-pipeline` zastępuje bezpośrednie wywołanie skanera
-- [ ] Lambda `validate`: magic bytes (`infer`), whitelista typów, porównanie z deklaracją, limit rozmiaru i wymiarów obrazu
-- [ ] Lambda `cdr`: dekodowanie i ponowne kodowanie obrazów, usunięcie metadanych, przepuszczenie whitelisty pól (autor, data, prawa autorskie)
-- [ ] Ochrona przed bombami dekompresyjnymi: sprawdzanie wymiarów przed pełnym dekodowaniem, limit pamięci
+- [x] Lambda `validate`: magic bytes (`infer`), whitelista typów, porównanie z deklaracją, limit rozmiaru i wymiarów obrazu
+- [x] Lambda `cdr`: dekodowanie i ponowne kodowanie obrazów, usunięcie metadanych, przepuszczenie whitelisty pól (autor, data, prawa autorskie)
+- [x] Ochrona przed bombami dekompresyjnymi: sprawdzanie wymiarów przed pełnym dekodowaniem, limit pamięci
 - [ ] Lambda `renditions`: miniatury i podglądy z watermarkiem dla grupy D
 - [ ] Bucket `renditions`, grupa D widzi wyłącznie podglądy
 - [ ] Walidacja metadanych JSON Schema w `upload-init` i przy edycji
@@ -592,7 +592,7 @@ Każdy etap kończy się działającym, wdrożonym systemem. Po etapie 1 projekt
 | Czas kompilacji Rust | Wolna pętla developerska z AWS SDK | Tylko potrzebne crate'y SDK, cache w CI, `cargo lambda watch` lokalnie |
 | Angular 22 i ekosystem | Zgodność wersji Tailwind, daisyUI i bibliotek OIDC | Sprawdzić przed startem etapu 1 |
 | Logowanie | Managed login Cognito czy własny formularz | Managed login w MVP (mniej kodu, mniej ryzyka) |
-| Wideo | Miniatury wideo wymagają `ffmpeg` w Lambdzie | Etap 3 lub pominięte; w MVP tylko obrazy i PDF |
+| Wideo | Miniatury wideo wymagają `ffmpeg` w Lambdzie | Etap 3 lub pominięte; w MVP tylko obrazy (PDF bez CDR wyłączony, ADR 0007) |
 | Koniec Free Planu | Konto zamknięte po 6 miesiącach | Zaplanować przejście na plan płatny lub poprzestać na nagraniu demo |
 | Terraform vs OpenTofu | Różnice licencyjne | Dowolny wybór, kod HCL zgodny |
 

@@ -119,7 +119,7 @@ Lokalny frontend (`npm start`) potrzebuje `frontend/public/config.json`: `just f
 
 1. Repo → Settings → Secrets and variables → Actions → **Variables** → `ALERT_EMAIL` = adres na alerty o zainfekowanych plikach.
 2. Po deployu AWS wyśle mail „AWS Notification - Subscription Confirmation” — kliknij **Confirm subscription**, inaczej alerty nie dotrą.
-3. Test EICAR (scenariusz 1): zapisz w pliku tekstowym standardowy ciąg testowy EICAR, nadaj plikowi rozszerzenie `.pdf` i wgraj go jako `+foto`. W ciągu ~1–2 min status assetu w DynamoDB zmieni się na `INFECTED`, plik trafi do bucketu `infected`, a na `ALERT_EMAIL` przyjdzie alert. Zwykłe zdjęcie dostanie `CLEAN_DRAFT` i trafi do `clean`.
+3. Test EICAR (scenariusz 1): zapisz w pliku tekstowym standardowy ciąg testowy EICAR, nadaj plikowi rozszerzenie `.jpg` i wgraj go jako `+foto`. W ciągu ~1–2 min status assetu w DynamoDB zmieni się na `INFECTED`, plik trafi do bucketu `infected`, a na `ALERT_EMAIL` przyjdzie alert. Zwykłe zdjęcie dostanie `CLEAN_DRAFT` i trafi do `clean`.
 
 Pierwszy skan po deployu jest wolniejszy (cold start: wczytanie bazy sygnatur). Komunikaty, których nie udało się przetworzyć 3 razy, trafiają do kolejki `matchday-dam-dev-scan-dlq`.
 
@@ -137,9 +137,10 @@ Grupa C nie widzi galerii ani nie pobiera oryginałów. Plik zainfekowany widzi 
 
 Od etapu 2 plik z kwarantanny przechodzi przez maszynę stanów `matchday-dam-dev-scan-pipeline` (konsola AWS → Step Functions). Każde wykonanie nazywa się jak asset, więc łatwo je znaleźć i prześledzić krok po kroku.
 
-1. Test EICAR jak w kroku 9: wykonanie przechodzi `MarkScanning → Scan → HandleInfected`. W DynamoDB pojawia się wpis w tabeli `matchday-dam-dev-incidents` (z adresem IP uploadu), a mail przychodzi z reguły EventBridge `asset.infected`.
-2. Zwykłe zdjęcie: `MarkScanning → Scan → FinalizeClean`, status „Czeka na publikację”.
-3. Błąd skanu kończy się statusem `SCAN_FAILED` (fail closed). Plik widać w „Administracja → Błędy skanu”, gdzie można ponowić skan, dopóki plik jest w kwarantannie (7 dni).
+1. Test EICAR jak w kroku 9 (plik `.jpg`): wykonanie przechodzi `MarkScanning → Scan → HandleInfected`. W DynamoDB pojawia się wpis w tabeli `matchday-dam-dev-incidents` (z adresem IP uploadu), a mail przychodzi z reguły EventBridge `asset.infected`.
+2. Zwykłe zdjęcie: `MarkScanning → Scan → Validate → Disarm → FinalizeClean`, status „Czeka na publikację”. W galerii jest wersja po CDR: bez EXIF/XMP; autor, prawa autorskie i data wykonania trafiają do rekordu w DynamoDB (`exifArtist`, `exifCopyright`, `exifTakenAt`).
+3. Plik o typie niezgodnym z deklaracją (np. zwykły tekst zapisany jako `.jpg`) albo obraz, którego nie da się zdekodować, kończy się `REJECTED` z powodem w `rejectReason`. Autor widzi go jako „Odrzucony”.
+4. Błąd skanu kończy się statusem `SCAN_FAILED` (fail closed). Plik widać w „Administracja → Błędy skanu”, gdzie można ponowić skan, dopóki plik jest w kwarantannie (7 dni).
 
 Bucket `infected` ma Object Lock w trybie GOVERNANCE (retencja 90 dni): nikt nie podmieni ani nie usunie dowodu bez uprawnienia `s3:BypassGovernanceRetention`.
 

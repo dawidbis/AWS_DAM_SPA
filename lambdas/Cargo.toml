@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["shared", "hello-world", "api/me", "api/upload-init", "api/upload-status", "api/upload-complete", "api/assets-read", "api/asset-publish", "api/asset-rescan", "pipeline/scan", "pipeline/start-scan", "pipeline/finalize-clean", "pipeline/handle-infected"]
+members = ["shared", "hello-world", "api/me", "api/upload-init", "api/upload-status", "api/upload-complete", "api/assets-read", "api/asset-publish", "api/asset-rescan", "pipeline/scan", "pipeline/start-scan", "pipeline/finalize-clean", "pipeline/handle-infected", "pipeline/validate", "pipeline/cdr"]
 
 [workspace.package]
 edition = "2024"
@@ -24,6 +24,11 @@ serde_json = "1"
 thiserror = "2"
 tokio = { version = "1", features = ["macros"] }
 uuid = { version = "1", features = ["v4"] }
+infer = { version = "0.22", default-features = false, features = ["std"] }
+imagesize = "0.15"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
+kamadak-exif = "0.6"
+sha2 = "0.11"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "json", "env-filter"] }
 

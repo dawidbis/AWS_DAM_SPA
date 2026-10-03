@@ -37,11 +37,7 @@ async fn start(app: &App, object: &ObjectRef) -> Result<Outcome, String> {
         tracing::warn!(bucket = %object.bucket, "event from unexpected bucket, ignoring");
         return Ok(Outcome::Ignored);
     }
-    let input = serde_json::to_string(&StepInput {
-        asset_id: object.asset_id.clone(),
-        scan: None,
-    })
-    .map_err(|e| e.to_string())?;
+    let input = serde_json::to_string(&StepInput::new(object.asset_id.clone())).map_err(|e| e.to_string())?;
     let result = app
         .sfn
         .start_execution()

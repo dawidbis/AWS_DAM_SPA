@@ -167,8 +167,9 @@ impl AssetRecord {
             uploader_id: string("uploaderId")?,
             title: string("title"),
             original_filename: string("originalFilename")?,
-            content_type: string("declaredContentType")?,
-            size_bytes: number("declaredSize")?,
+            // Po pipeline'ie typ i rozmiar ustalone przez serwer, wcześniej deklaracja.
+            content_type: string("detectedType").or_else(|| string("declaredContentType"))?,
+            size_bytes: number("sizeBytes").or_else(|| number("declaredSize"))?,
             created_at,
             updated_at: number("updatedAt").unwrap_or(created_at),
         })
@@ -294,6 +295,19 @@ mod tests {
         assert_eq!(record.size_bytes, 1024);
         assert_eq!(record.title, None);
         assert!(record.is_image());
+    }
+
+    #[test]
+    fn prefers_facts_established_by_the_pipeline() {
+        let mut processed = item();
+        processed.insert(
+            "detectedType".to_owned(),
+            AttributeValue::S("image/png".to_owned()),
+        );
+        processed.insert("sizeBytes".to_owned(), AttributeValue::N("900".to_owned()));
+        let record = AssetRecord::from_item(&processed).unwrap();
+        assert_eq!(record.content_type, "image/png");
+        assert_eq!(record.size_bytes, 900);
     }
 
     #[test]

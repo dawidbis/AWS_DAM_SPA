@@ -1,0 +1,23 @@
+[package]
+name = "pipeline-cdr"
+description = "Krok scan-pipeline: rekonstrukcja obrazu (CDR) bez metadanych i doklejonej treści"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+shared.workspace = true
+aws-config.workspace = true
+aws-sdk-s3.workspace = true
+image.workspace = true
+kamadak-exif.workspace = true
+lambda_runtime.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+tracing.workspace = true
+
+[lints]
+workspace = true
