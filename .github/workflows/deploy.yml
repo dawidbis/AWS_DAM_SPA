@@ -55,7 +55,9 @@ jobs:
           terraform_wrapper: false
 
       - name: terraform init
-        run: terraform -chdir="$TF_DIR" init -input=false -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+        env:
+          TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+        run: terraform -chdir="$TF_DIR" init -input=false -backend-config="bucket=$TF_STATE_BUCKET"
 
       # Repozytorium ECR musi istnieć przed wypchnięciem obrazu skanera.
       - name: ECR dla skanera
@@ -87,7 +89,7 @@ jobs:
         env:
           FORCE_SCANNER_BUILD: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
         run: |
-          pip install cargo-lambda
+          pip install cargo-lambda==1.9.2
           ./scripts/build-scanner.sh
 
       - name: terraform apply

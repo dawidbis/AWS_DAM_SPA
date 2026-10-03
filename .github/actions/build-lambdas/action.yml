@@ -16,7 +16,7 @@ runs:
         python-version: "3.12"
     - name: Install Cargo Lambda
       shell: bash
-      run: pip install cargo-lambda
+      run: pip install cargo-lambda==1.9.2
     - name: cargo lambda build
       shell: bash
       working-directory: lambdas
