@@ -99,7 +99,9 @@ pub async fn move_object(s3: &Client, from_bucket: &str, to_bucket: &str, key: &
         .send()
         .await;
     if let Err(error) = copied {
-        let missing_source = error.as_service_error().is_some_and(|e| e.meta().code() == Some("NoSuchKey"));
+        let missing_source = error
+            .as_service_error()
+            .is_some_and(|e| e.meta().code() == Some("NoSuchKey"));
         if !(missing_source && object_exists(s3, to_bucket, key).await?) {
             return Err(format!("kopiowanie {from_bucket} -> {to_bucket}: {error:?}"));
         }
