@@ -311,6 +311,8 @@ module "handle_infected" {
 
 locals {
   # Ponowienia przy chwilowych błędach usług. Kroki są idempotentne.
+  # lambda_retry: awarie samej usługi Lambda (throttling, błąd wywołania),
+  # 4 próby co 5, 10, 20, 40 s z losowym rozrzutem (jitter).
   lambda_retry = [
     {
       ErrorEquals     = ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException", "Lambda.TooManyRequestsException"]
@@ -320,6 +322,9 @@ locals {
       JitterStrategy  = "FULL"
     },
   ]
+  # step_retry: dodatkowo błąd zgłoszony przez kod kroku (Err z Lambdy, np.
+  # chwilowy błąd S3), 2 próby. Scan i Disarm go nie używają: skan trwa
+  # minuty, a błąd dekodowania obrazu powtórzyłby się tak samo.
   step_retry = concat(local.lambda_retry, [
     {
       ErrorEquals     = ["States.TaskFailed"]
@@ -328,6 +333,7 @@ locals {
       BackoffRate     = 2
     },
   ])
+  # dynamo_retry: throttling DynamoDB w stanach updateItem (bez Lambdy).
   dynamo_retry = [
     {
       ErrorEquals     = ["DynamoDB.ProvisionedThroughputExceededException", "DynamoDB.ThrottlingException", "DynamoDB.InternalServerErrorException", "DynamoDB.RequestLimitExceeded"]
@@ -337,12 +343,19 @@ locals {
     },
   ]
 
+  # Klucz rekordu w tabeli assets (ten sam format co shared::assets::asset_pk).
   asset_key = { pk = { S = "{% 'ASSET#' & $states.input.assetId %}" } }
+  # Wyjście bloku Catch: ID assetu i przyczyna błędu (Error: Cause), którą
+  # MarkScanFailed zapisuje jako scanError (max 500 znaków).
   to_scan_failed = {
     assetId = "{% $states.input.assetId %}"
     reason  = "{% $states.errorOutput.Error & ': ' & $states.errorOutput.Cause %}"
   }
 
+  # Dane wykonania rosną krok po kroku: {assetId} → + scan → + validation
+  # → + disarm → + renditions ($merge w Output). Każda Lambda dostaje całość
+  # jako shared::pipeline::StepInput, a pola verdict/result rozgałęziają stany
+  # Choice. Opis stanów: README.md modułu i docs/architecture.md (6.2).
   scan_pipeline = {
     Comment       = "Skan, walidacja i CDR pliku z kwarantanny (rozdział 3.2). Każdy błąd kończy się SCAN_FAILED."
     QueryLanguage = "JSONata"

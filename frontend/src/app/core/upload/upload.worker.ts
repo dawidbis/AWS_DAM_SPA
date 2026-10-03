@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 
 // Wysyłanie części pliku poza wątkiem UI: przeglądarka pozostaje płynna
-// nawet przy pliku 1 GB. Plik idzie bezpośrednio do S3 (presigned PUT),
+// nawet przy największym pliku (200 MB). Plik idzie bezpośrednio do S3 (presigned PUT),
 // bez tokenu JWT i bez przechodzenia przez API.
 
 import { UploadPartsCommand, uploadParts } from './upload-protocol';

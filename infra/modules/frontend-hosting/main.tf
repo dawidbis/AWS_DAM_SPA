@@ -1,6 +1,7 @@
 # Hosting SPA: prywatny bucket S3 dostępny wyłącznie przez CloudFront
-# (Origin Access Control). Pełna polityka CSP przyjdzie w etapie 2; tu
-# ustawiamy nagłówki, które nie zależą od adresów API i Cognito.
+# (Origin Access Control), nagłówki bezpieczeństwa (CSP, HSTS, nosniff,
+# X-Frame-Options, Permissions-Policy) i config.json dla Angulara.
+# Pliki aplikacji wgrywa scripts/deploy-frontend.sh (krok w deploy.yml).
 
 terraform {
   required_version = ">= 1.10"

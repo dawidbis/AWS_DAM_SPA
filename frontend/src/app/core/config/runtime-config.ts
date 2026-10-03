@@ -13,7 +13,7 @@ export interface RuntimeConfig {
   /** Adres managed login, np. https://<prefix>.auth.eu-central-1.amazoncognito.com. */
   authDomain: string;
   clientId: string;
-  /** Bazowy URL API (od kolejnego kroku etapu 1). Tylko tam interceptor dokleja token. */
+  /** Bazowy URL API Gateway. Tylko do tego adresu interceptor dokleja token (nie do S3). */
   apiUrl?: string;
 }
 
