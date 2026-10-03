@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["shared", "hello-world", "api/me", "api/upload-init", "api/upload-status", "api/upload-complete", "api/assets-read", "api/asset-publish", "api/asset-rescan", "pipeline/scan", "pipeline/start-scan", "pipeline/finalize-clean", "pipeline/handle-infected", "pipeline/validate", "pipeline/cdr", "pipeline/renditions"]
+members = ["shared", "hello-world", "api/me", "api/upload-init", "api/upload-status", "api/upload-complete", "api/assets-read", "api/asset-publish", "api/asset-rescan", "api/asset-delete", "pipeline/scan", "pipeline/start-scan", "pipeline/finalize-clean", "pipeline/handle-infected", "pipeline/validate", "pipeline/cdr", "pipeline/renditions"]
 
 [workspace.package]
 edition = "2024"
@@ -42,9 +42,11 @@ pedantic = { level = "warn", priority = -1 }
 module_name_repetitions = "allow"
 doc_markdown = "allow"
 
+# Thin LTO i kilka jednostek kodegeneracji: build kilkukrotnie krótszy niż
+# przy pełnym LTO, binarki większe o kilka procent (bez znaczenia dla Lambd).
 [profile.release]
 opt-level = "s"
-lto = true
-codegen-units = 1
+lto = "thin"
+codegen-units = 4
 strip = true
 panic = "abort"

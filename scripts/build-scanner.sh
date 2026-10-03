@@ -6,7 +6,14 @@
 # jeszcze obrazu albo FORCE_SCANNER_BUILD=true (cotygodniowe odświeżenie
 # sygnatur). W pozostałych przypadkach używany jest najnowszy obraz, żeby nie
 # pobierać bazy ClamAV (~300 MB) przy każdym deployu.
+#
+# --check: tylko decyzja. Zapisuje rebuild=true|false do $GITHUB_OUTPUT (deploy
+# instaluje toolchain Rusta wyłącznie, gdy obraz trzeba przebudować), a przy
+# rebuild=false od razu publikuje URI najnowszego obrazu.
 set -euo pipefail
+
+check_only=false
+[[ "${1:-}" == "--check" ]] && check_only=true
 
 REPO_NAME="${SCANNER_REPOSITORY:-matchday-dam-dev-scanner}"
 CONTEXT="lambdas/pipeline/scan/container"
@@ -29,8 +36,19 @@ publish() {
   fi
 }
 
+rebuild=true
 if [[ "${FORCE_SCANNER_BUILD:-false}" != "true" && "$changed" == "false" && "$latest" != "None" ]]; then
+  rebuild=false
+fi
+if [[ "$check_only" == "true" && -n "${GITHUB_OUTPUT:-}" ]]; then
+  echo "rebuild=$rebuild" >> "$GITHUB_OUTPUT"
+fi
+if [[ "$rebuild" == "false" ]]; then
   publish "$repo_uri@$latest"
+  exit 0
+fi
+if [[ "$check_only" == "true" ]]; then
+  echo "Obraz skanera do przebudowy."
   exit 0
 fi
 
