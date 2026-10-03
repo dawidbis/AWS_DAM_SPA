@@ -133,6 +133,16 @@ Test kryterium ukończenia etapu 1:
 
 Grupa C nie widzi galerii ani nie pobiera oryginałów. Plik zainfekowany widzi w „Moich zgłoszeniach” tylko jako „Odrzucony”, bez szczegółów wykrycia (pełny status widzi A). Grupa D dostanie podglądy z watermarkiem w etapie 2.
 
+## 11. Pipeline Step Functions (etap 2)
+
+Od etapu 2 plik z kwarantanny przechodzi przez maszynę stanów `matchday-dam-dev-scan-pipeline` (konsola AWS → Step Functions). Każde wykonanie nazywa się jak asset, więc łatwo je znaleźć i prześledzić krok po kroku.
+
+1. Test EICAR jak w kroku 9: wykonanie przechodzi `MarkScanning → Scan → HandleInfected`. W DynamoDB pojawia się wpis w tabeli `matchday-dam-dev-incidents` (z adresem IP uploadu), a mail przychodzi z reguły EventBridge `asset.infected`.
+2. Zwykłe zdjęcie: `MarkScanning → Scan → FinalizeClean`, status „Czeka na publikację”.
+3. Błąd skanu kończy się statusem `SCAN_FAILED` (fail closed). Plik widać w „Administracja → Błędy skanu”, gdzie można ponowić skan, dopóki plik jest w kwarantannie (7 dni).
+
+Bucket `infected` ma Object Lock w trybie GOVERNANCE (retencja 90 dni): nikt nie podmieni ani nie usunie dowodu bez uprawnienia `s3:BypassGovernanceRetention`.
+
 ## Hamulec kosztów
 
 ```bash

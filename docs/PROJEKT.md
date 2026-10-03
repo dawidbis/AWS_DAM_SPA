@@ -491,16 +491,16 @@ Każdy etap kończy się działającym, wdrożonym systemem. Po etapie 1 projekt
 
 **Cel:** ochrona przed tym, czego antywirus nie wykrywa.
 
-- [ ] Step Functions `scan-pipeline` zastępuje bezpośrednie wywołanie skanera
+- [x] Step Functions `scan-pipeline` zastępuje bezpośrednie wywołanie skanera
 - [ ] Lambda `validate`: magic bytes (`infer`), whitelista typów, porównanie z deklaracją, limit rozmiaru i wymiarów obrazu
 - [ ] Lambda `cdr`: dekodowanie i ponowne kodowanie obrazów, usunięcie metadanych, przepuszczenie whitelisty pól (autor, data, prawa autorskie)
 - [ ] Ochrona przed bombami dekompresyjnymi: sprawdzanie wymiarów przed pełnym dekodowaniem, limit pamięci
 - [ ] Lambda `renditions`: miniatury i podglądy z watermarkiem dla grupy D
 - [ ] Bucket `renditions`, grupa D widzi wyłącznie podglądy
 - [ ] Walidacja metadanych JSON Schema w `upload-init` i przy edycji
-- [ ] Statusy `REJECTED` i `SCAN_FAILED` (fail closed), ponowienie skanu przez admina
-- [ ] Object Lock na buckecie `infected`
-- [ ] Tabela `incidents`, zdarzenie `asset.infected` w EventBridge
+- [x] Statusy `REJECTED` i `SCAN_FAILED` (fail closed), ponowienie skanu przez admina
+- [x] Object Lock na buckecie `infected`
+- [x] Tabela `incidents`, zdarzenie `asset.infected` w EventBridge
 - [ ] Nagłówki bezpieczeństwa w CloudFront (CSP, HSTS, `X-Content-Type-Options`, `frame-ancestors`)
 - [ ] Katalog `tests/security-fixtures/` i testy z rozdziału 12
 - [ ] Testy IAM: próby niedozwolonego dostępu kończą się `AccessDenied`

@@ -1,7 +1,7 @@
 //! Odczyt katalogu assetów (rola `dam-assets-read`):
 //!
-//! - `GET /assets?view=gallery|mine|drafts[&cursor=]`: galeria (A, B),
-//!   własne zgłoszenia (A, C), kolejka publikacji (A),
+//! - `GET /assets?view=gallery|mine|drafts|failed[&cursor=]`: galeria (A, B),
+//!   własne zgłoszenia (A, C), kolejka publikacji i nieudane skany (A),
 //! - `GET /assets/{assetId}/download`: krótko żyjący presigned URL do
 //!   oryginału z bucketu `clean` (A, B; rozdział 4).
 //!
@@ -48,6 +48,7 @@ fn index_query(view: AssetView, caller: &Caller) -> IndexQuery {
     match view {
         AssetView::Gallery => status_query(AssetStatus::Published),
         AssetView::Drafts => status_query(AssetStatus::CleanDraft),
+        AssetView::Failed => status_query(AssetStatus::ScanFailed),
         AssetView::Mine => IndexQuery {
             index: "uploader-index",
             key_attribute: "uploaderId",

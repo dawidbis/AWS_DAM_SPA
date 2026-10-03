@@ -1,21 +1,20 @@
 [package]
-name = "pipeline-scan"
-description = "Skan antywirusowy ClamAV plików z kwarantanny (obraz kontenera Lambda)"
+name = "pipeline-finalize-clean"
+description = "Krok scan-pipeline: czysty plik trafia do bucketu clean, status CLEAN_DRAFT"
 edition.workspace = true
 version.workspace = true
 license.workspace = true
 publish.workspace = true
 
-[[bin]]
-name = "scan"
-path = "src/main.rs"
-
 [dependencies]
 shared.workspace = true
 aws-config.workspace = true
+aws-sdk-dynamodb.workspace = true
 aws-sdk-s3.workspace = true
 lambda_runtime.workspace = true
-tokio = { workspace = true, features = ["fs", "io-util", "net", "process", "rt-multi-thread", "sync", "time"] }
+serde.workspace = true
+serde_json.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread"] }
 tracing.workspace = true
 
 [lints]

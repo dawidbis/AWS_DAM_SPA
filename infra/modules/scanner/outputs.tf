@@ -17,3 +17,8 @@ output "dlq_url" {
 output "alerts_topic_arn" {
   value = aws_sns_topic.alerts.arn
 }
+
+output "state_machine_arn" {
+  description = "ARN maszyny stanów scan-pipeline (ponowienie skanu przez admina)."
+  value       = local.state_machine_arn
+}

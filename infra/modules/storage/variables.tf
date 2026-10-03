@@ -14,18 +14,19 @@ variable "bucket_access" {
     writers = list(string)
   }))
   default = {
+    # dam-finalize-clean czyta oryginał z kwarantanny do czasu kroku CDR;
+    # potem będzie przenosić zrekonstruowaną wersję z clean/staging.
     quarantine = {
-      readers = ["dam-validate", "dam-scan", "dam-cdr", "dam-handle-infected"]
+      readers = ["dam-validate", "dam-scan", "dam-cdr", "dam-handle-infected", "dam-finalize-clean"]
       writers = ["dam-upload-init", "dam-upload-status", "dam-upload-complete"]
     }
-    # dam-scan zapisuje wynik sam do czasu Step Functions (etap 2).
     clean = {
       readers = ["dam-assets-read"]
-      writers = ["dam-scan", "dam-finalize-clean", "dam-cdr"]
+      writers = ["dam-finalize-clean", "dam-cdr"]
     }
     infected = {
       readers = []
-      writers = ["dam-scan", "dam-handle-infected"]
+      writers = ["dam-handle-infected"]
     }
   }
 
@@ -52,7 +53,7 @@ variable "quarantine_retention_days" {
 }
 
 variable "infected_retention_days" {
-  description = "Jak długo przechowywać dowody incydentów."
+  description = "Jak długo przechowywać dowody incydentów (lifecycle i domyślna retencja Object Lock)."
   type        = number
   default     = 90
 }

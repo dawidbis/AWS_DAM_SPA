@@ -110,7 +110,7 @@ module "data" {
   name_prefix = local.name_prefix
 }
 
-# --- Skanowanie (EventBridge → SQS → ClamAV) ---------------------------------------
+# --- Skanowanie (EventBridge → SQS → Step Functions scan-pipeline) ------------------
 
 module "scanner" {
   source = "../../modules/scanner"
@@ -120,8 +120,12 @@ module "scanner" {
   permissions_boundary_arn = data.aws_iam_policy.permissions_boundary.arn
   alert_email              = var.alert_email
 
-  assets_table_name     = module.data.assets_table_name
-  assets_table_arn      = module.data.assets_table_arn
+  lambda_artifacts_dir = var.lambda_artifacts_dir
+  assets_table_name    = module.data.assets_table_name
+  assets_table_arn     = module.data.assets_table_arn
+  incidents_table_name = module.data.incidents_table_name
+  incidents_table_arn  = module.data.incidents_table_arn
+
   quarantine_bucket     = module.storage.bucket_names["quarantine"]
   quarantine_bucket_arn = module.storage.bucket_arns["quarantine"]
   clean_bucket          = module.storage.bucket_names["clean"]
@@ -275,6 +279,38 @@ module "asset_publish" {
   }
 }
 
+# Ponowienie skanu po SCAN_FAILED (A).
+data "aws_iam_policy_document" "asset_rescan" {
+  statement {
+    sid       = "TransitionAssetStatus"
+    actions   = ["dynamodb:UpdateItem"]
+    resources = [module.data.assets_table_arn]
+  }
+
+  statement {
+    sid       = "StartScanPipeline"
+    actions   = ["states:StartExecution"]
+    resources = [module.scanner.state_machine_arn]
+  }
+}
+
+module "asset_rescan" {
+  source = "../../modules/rust-lambda"
+
+  name                     = "asset-rescan"
+  function_name            = "${local.name_prefix}-asset-rescan"
+  description              = "POST /assets/{assetId}/rescan: ponowienie skanu przez A po SCAN_FAILED"
+  zip_path                 = "${var.lambda_artifacts_dir}/api-asset-rescan/bootstrap.zip"
+  permissions_boundary_arn = data.aws_iam_policy.permissions_boundary.arn
+
+  policies = { main = data.aws_iam_policy_document.asset_rescan.json }
+
+  environment = {
+    ASSETS_TABLE      = module.data.assets_table_name
+    STATE_MACHINE_ARN = module.scanner.state_machine_arn
+  }
+}
+
 module "api" {
   source = "../../modules/http-api"
 
@@ -291,5 +327,6 @@ module "api" {
     "GET /assets"                      = { function_name = module.assets_read.function_name, function_arn = module.assets_read.function_arn }
     "GET /assets/{assetId}/download"   = { function_name = module.assets_read.function_name, function_arn = module.assets_read.function_arn }
     "POST /assets/{assetId}/publish"   = { function_name = module.asset_publish.function_name, function_arn = module.asset_publish.function_arn }
+    "POST /assets/{assetId}/rescan"    = { function_name = module.asset_rescan.function_name, function_arn = module.asset_rescan.function_arn }
   }
 }

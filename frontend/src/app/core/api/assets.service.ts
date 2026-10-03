@@ -6,7 +6,7 @@ import { RUNTIME_CONFIG } from '../config/runtime-config';
 import { AssetListResponse } from './generated-types/AssetListResponse';
 import { AssetView } from './generated-types/AssetView';
 import { DownloadResponse } from './generated-types/DownloadResponse';
-import { PublishResponse } from './generated-types/PublishResponse';
+import { AssetStatusResponse } from './generated-types/AssetStatusResponse';
 
 /**
  * Katalog assetów. Typy odpowiedzi są generowane z modeli Rusta (ts-rs),
@@ -32,9 +32,17 @@ export class AssetsService {
     );
   }
 
-  publish(assetId: string): Observable<PublishResponse> {
-    return this.http.post<PublishResponse>(
+  publish(assetId: string): Observable<AssetStatusResponse> {
+    return this.http.post<AssetStatusResponse>(
       `${this.apiUrl}/assets/${encodeURIComponent(assetId)}/publish`,
+      {},
+    );
+  }
+
+  /** Ponowienie skanu po SCAN_FAILED (A). */
+  rescan(assetId: string): Observable<AssetStatusResponse> {
+    return this.http.post<AssetStatusResponse>(
+      `${this.apiUrl}/assets/${encodeURIComponent(assetId)}/rescan`,
       {},
     );
   }

@@ -1,7 +1,9 @@
-# Pipeline skanowania etapu 1 (rozdział 3.1):
-#   S3 quarantine → EventBridge → SQS scan-queue (+ DLQ) → Lambda scan (ClamAV)
-# Lambda jest obrazem kontenera w ECR; obraz buduje CI (deploy.yml), więc
-# funkcja powstaje dopiero, gdy podany jest image_uri.
+# Pipeline skanowania (rozdział 3.2):
+#   S3 quarantine → EventBridge → SQS scan-queue (+ DLQ) → Lambda start-scan
+#   → Step Functions scan-pipeline (pipeline.tf) → scan / finalize-clean /
+#   handle-infected → zdarzenie asset.infected → alert SNS (alerts.tf).
+# Lambda scan jest obrazem kontenera w ECR; obraz buduje CI (deploy.yml),
+# więc funkcja i maszyna stanów powstają dopiero, gdy podany jest image_uri.
 
 terraform {
   required_version = ">= 1.10"
@@ -22,7 +24,12 @@ locals {
   name           = "${var.name_prefix}-scan"
   create_lambda  = var.image_uri != ""
   scan_timeout_s = 600
+  region         = data.aws_region.current.region
+  account_id     = data.aws_caller_identity.current.account_id
+  partition      = data.aws_partition.current.partition
 }
+
+data "aws_region" "current" {}
 
 # --- ECR ---------------------------------------------------------------------
 
@@ -68,8 +75,9 @@ resource "aws_sqs_queue" "dlq" {
 
 resource "aws_sqs_queue" "scan" {
   name = "${var.name_prefix}-scan-queue"
-  # AWS zaleca widoczność ≥ 6 × timeout funkcji przy wyzwalaczu SQS.
-  visibility_timeout_seconds = 6 * local.scan_timeout_s
+  # AWS zaleca widoczność ≥ 6 × timeout funkcji przy wyzwalaczu SQS
+  # (start-scan tylko uruchamia wykonanie Step Functions).
+  visibility_timeout_seconds = 6 * local.start_scan_timeout_s
   message_retention_seconds  = 4 * 24 * 3600
   sqs_managed_sse_enabled    = true
 
@@ -139,24 +147,6 @@ resource "aws_sqs_queue_policy" "scan" {
   policy    = data.aws_iam_policy_document.queue.json
 }
 
-# --- Alerty --------------------------------------------------------------------
-
-# Bez SSE: alert zawiera tylko ID assetu, sub uploadera i nazwę sygnatury
-# (bez treści pliku). Szyfrowanie KMS wymagałoby uprawnień kms w permission
-# boundary; do rozważenia w etapie 2.
-resource "aws_sns_topic" "alerts" { # NOSONAR
-  #checkov:skip=CKV_AWS_26:Alert zawiera tylko ID assetu i nazwę sygnatury; KMS wymaga zmiany boundary
-  name = "${var.name_prefix}-security-alerts"
-}
-
-resource "aws_sns_topic_subscription" "email" {
-  count = var.alert_email == "" ? 0 : 1
-
-  topic_arn = aws_sns_topic.alerts.arn
-  protocol  = "email"
-  endpoint  = var.alert_email
-}
-
 # --- Lambda --------------------------------------------------------------------
 
 data "aws_iam_policy_document" "trust" {
@@ -188,37 +178,13 @@ resource "aws_iam_role_policy_attachment" "basic_execution" {
   policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
+# Skaner tylko czyta plik z kwarantanny. Przeniesienie pliku, statusy
+# i alerty to kolejne kroki z własnymi rolami (pipeline.tf).
 data "aws_iam_policy_document" "scan" {
   statement {
-    sid       = "ConsumeScanQueue"
-    actions   = ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:GetQueueAttributes"]
-    resources = [aws_sqs_queue.scan.arn]
-  }
-
-  statement {
-    sid       = "ReadAndRemoveFromQuarantine"
-    actions   = ["s3:GetObject", "s3:DeleteObject"]
+    sid       = "ReadQuarantine"
+    actions   = ["s3:GetObject"]
     resources = ["${var.quarantine_bucket_arn}/*"]
-  }
-
-  # Etap 1: skaner sam przenosi plik. W etapie 2 robią to osobne role
-  # finalize-clean i handle-infected uruchamiane przez Step Functions.
-  statement {
-    sid       = "WriteScanResult"
-    actions   = ["s3:PutObject"]
-    resources = ["${var.clean_bucket_arn}/*", "${var.infected_bucket_arn}/*"]
-  }
-
-  statement {
-    sid       = "TransitionAssetStatus"
-    actions   = ["dynamodb:GetItem", "dynamodb:UpdateItem"]
-    resources = [var.assets_table_arn]
-  }
-
-  statement {
-    sid       = "SecurityAlert"
-    actions   = ["sns:Publish"]
-    resources = [aws_sns_topic.alerts.arn]
   }
 }
 
@@ -239,12 +205,12 @@ resource "aws_cloudwatch_log_group" "scan" {
 }
 
 resource "aws_lambda_function" "scan" {
-  #checkov:skip=CKV_AWS_116:Wywoływana przez SQS z własną kolejką DLQ (redrive)
-  #checkov:skip=CKV_AWS_115:Współbieżność ogranicza maximum_concurrency wyzwalacza SQS; reserved concurrency niedostępne przy limicie konta 10
+  #checkov:skip=CKV_AWS_116:Wywoływana synchronicznie przez Step Functions, błędy obsługuje maszyna stanów
+  #checkov:skip=CKV_AWS_115:Reserved concurrency niedostępne przy limicie konta 10; liczbę wykonań ogranicza wyzwalacz start-scan
   count = local.create_lambda ? 1 : 0
 
   function_name = local.name
-  description   = "Skan antywirusowy ClamAV plików z kwarantanny"
+  description   = "Krok scan-pipeline: skan antywirusowy ClamAV pliku z kwarantanny"
   role          = aws_iam_role.scan.arn
   package_type  = "Image"
   image_uri     = var.image_uri
@@ -269,11 +235,7 @@ resource "aws_lambda_function" "scan" {
   environment {
     variables = {
       RUST_LOG          = "info"
-      ASSETS_TABLE      = var.assets_table_name
       QUARANTINE_BUCKET = var.quarantine_bucket
-      CLEAN_BUCKET      = var.clean_bucket
-      INFECTED_BUCKET   = var.infected_bucket
-      ALERTS_TOPIC_ARN  = aws_sns_topic.alerts.arn
     }
   }
 
@@ -282,18 +244,4 @@ resource "aws_lambda_function" "scan" {
     aws_iam_role_policy_attachment.scan,
     aws_cloudwatch_log_group.scan,
   ]
-}
-
-resource "aws_lambda_event_source_mapping" "scan" {
-  count = local.create_lambda ? 1 : 0
-
-  event_source_arn        = aws_sqs_queue.scan.arn
-  function_name           = aws_lambda_function.scan[0].arn
-  batch_size              = 1
-  function_response_types = ["ReportBatchItemFailures"]
-
-  # Najwyżej 2 skany naraz: kontrola kosztów (rozdział 13).
-  scaling_config {
-    maximum_concurrency = 2
-  }
 }

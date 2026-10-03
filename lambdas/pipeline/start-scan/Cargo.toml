@@ -1,0 +1,22 @@
+[package]
+name = "pipeline-start-scan"
+description = "Zdarzenia z kolejki skanowania uruchamiają Step Functions scan-pipeline"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+shared.workspace = true
+aws-config.workspace = true
+aws-sdk-sfn.workspace = true
+aws_lambda_events.workspace = true
+lambda_runtime.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+tracing.workspace = true
+
+[lints]
+workspace = true

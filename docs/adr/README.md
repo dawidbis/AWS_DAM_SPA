@@ -5,6 +5,8 @@ Format: krótki [MADR](https://adr.github.io/madr/) — kontekst, decyzja, konse
 | Nr | Decyzja | Status |
 |---|---|---|
 | [0003](0003-terraform.md) | Terraform jako IaC | Zaakceptowany |
+| [0005](0005-step-functions-scan-pipeline.md) | Step Functions do orkiestracji pipeline'u skanowania | Zaakceptowany |
+| [0008](0008-fail-closed.md) | Fail closed przy błędach skanu | Zaakceptowany |
 | [0012](0012-single-aws-account.md) | Jedno konto AWS w fazie Free Planu | Zaakceptowany |
 | [0013](0013-github-oidc-deploy-roles.md) | GitHub OIDC, role plan/deploy i permission boundary | Zaakceptowany |
 | [0014](0014-clamav-scanner-lambda.md) | Skaner ClamAV jako obraz kontenera Lambda z clamd | Zaakceptowany |

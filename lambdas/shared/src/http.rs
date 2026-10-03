@@ -108,6 +108,16 @@ pub fn caller(request: &Request) -> Result<Caller, ApiError> {
     Ok(Caller::from_claims(claims)?)
 }
 
+/// Adres IP klienta widziany przez API Gateway (do zapisu przy uploadzie;
+/// trafia do incydentu, gdy plik okaże się złośliwy).
+#[must_use]
+pub fn source_ip(request: &Request) -> Option<String> {
+    match request.request_context_ref() {
+        Some(RequestContext::ApiGatewayV2(context)) => context.http.source_ip.clone(),
+        _ => None,
+    }
+}
+
 /// Parsuje ciało żądania JSON (limit rozmiaru egzekwuje API Gateway).
 ///
 /// # Errors

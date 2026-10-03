@@ -54,3 +54,16 @@ variable "log_retention_days" {
   type    = number
   default = 14
 }
+
+variable "incidents_table_name" {
+  type = string
+}
+
+variable "incidents_table_arn" {
+  type = string
+}
+
+variable "lambda_artifacts_dir" {
+  description = "Katalog z bootstrap.zip Lambd kroków (cargo lambda build)."
+  type        = string
+}

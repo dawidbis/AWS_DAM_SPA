@@ -2,6 +2,9 @@
 //! Komunikat zawiera tylko referencję do obiektu, nigdy treść pliku.
 
 use serde::Deserialize;
+// Klucz w kwarantannie to UUID nadany przez upload-init. Każdy inny klucz
+// oznacza obiekt, który nie powstał przez nasze API, więc go ignorujemy.
+use shared::catalog::is_asset_id;
 
 #[derive(Debug, Deserialize)]
 struct EventBridgeEvent {
@@ -44,16 +47,6 @@ pub enum EventError {
     UnexpectedType(String),
     #[error("klucz obiektu nie jest identyfikatorem assetu")]
     UnexpectedKey,
-}
-
-/// Klucz w kwarantannie to UUID nadany przez upload-init. Każdy inny klucz
-/// oznacza obiekt, który nie powstał przez nasze API, więc go ignorujemy.
-fn is_asset_id(key: &str) -> bool {
-    key.len() == 36
-        && key.chars().enumerate().all(|(i, c)| match i {
-            8 | 13 | 18 | 23 => c == '-',
-            _ => c.is_ascii_hexdigit() && !c.is_ascii_uppercase(),
-        })
 }
 
 /// Parsuje ciało komunikatu SQS.

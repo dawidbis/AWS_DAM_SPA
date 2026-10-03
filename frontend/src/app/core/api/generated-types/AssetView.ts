@@ -3,4 +3,4 @@
 /**
  * Widok listy assetów (`GET /assets?view=...`).
  */
-export type AssetView = "gallery" | "mine" | "drafts";
+export type AssetView = "gallery" | "mine" | "drafts" | "failed";

@@ -187,6 +187,30 @@ pub async fn transition(
     Ok(())
 }
 
+/// Jak [`transition`], ale powtórzenie przejścia już wykonanego (asset ma
+/// docelowy status) nie jest błędem. Kroki Step Functions mogą być
+/// ponawiane, więc muszą być idempotentne (rozdział 7.1).
+///
+/// # Errors
+///
+/// [`StoreError::InvalidTransition`], gdy asset ma inny status niż
+/// dozwolony poprzednik albo docelowy.
+pub async fn transition_idempotent(
+    client: &Client,
+    table: &str,
+    asset_id: &str,
+    to: AssetStatus,
+    extra: &[(&str, AttributeValue)],
+) -> Result<(), StoreError> {
+    match transition(client, table, asset_id, to, extra).await {
+        Err(StoreError::InvalidTransition(_)) => match get_status(client, table, asset_id).await? {
+            (current, _) if current == to => Ok(()),
+            _ => Err(StoreError::InvalidTransition(to)),
+        },
+        other => other,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
