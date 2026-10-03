@@ -89,7 +89,7 @@ jobs:
         env:
           FORCE_SCANNER_BUILD: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
         run: |
-          pip install cargo-lambda==1.9.2
+          pip install --only-binary :all: cargo-lambda==1.9.2
           ./scripts/build-scanner.sh
 
       - name: terraform apply
