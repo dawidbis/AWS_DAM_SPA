@@ -41,7 +41,18 @@ resource "aws_cloudwatch_event_target" "alert_email" {
       signature = "$.detail.signature"
       engine    = "$.detail.engine"
     }
-    input_template = "\"Wykryto złośliwy plik w Matchday DAM.\\n\\nAsset: <asset>\\nUploader (sub): <uploader>\\nIP: <ip>\\nSygnatura: <signature>\\nSilnik: <engine>\\n\\nPlik przeniesiono do bucketu infected (Object Lock), incydent zapisano w tabeli incidents. Plik nie jest dostępny w galerii.\""
+    # EventBridge przyjmuje tekst tylko jako ciąg w cudzysłowie, a sekwencji
+    # \n wewnątrz ciągu nie zamienia na nową linię. Każda linia maila to więc
+    # osobny ciąg w osobnej linii szablonu.
+    input_template = <<-EOT
+      "Wykryto złośliwy plik w Matchday DAM."
+      "Asset: <asset>"
+      "Uploader (sub): <uploader>"
+      "IP: <ip>"
+      "Sygnatura: <signature>"
+      "Silnik: <engine>"
+      "Plik przeniesiono do bucketu infected (Object Lock), incydent zapisano w tabeli incidents. Plik nie jest dostępny w galerii."
+    EOT
   }
 }
 
