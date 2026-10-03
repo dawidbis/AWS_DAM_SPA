@@ -1,10 +1,11 @@
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { Component, DestroyRef, effect, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 import { AssetPager } from '../../core/api/asset-pager';
 import { STATUS_PRESENTATION, isInProgress } from '../../core/api/asset-status';
 import { AssetsService } from '../../core/api/assets.service';
+import { FileSizePipe } from '../../core/format/file-size.pipe';
 
 /** Co ile odświeżać listę, gdy któryś plik jest jeszcze skanowany. */
 export const SUBMISSIONS_POLL_MS = 5000;
@@ -12,7 +13,7 @@ export const SUBMISSIONS_POLL_MS = 5000;
 /** „Moje zgłoszenia”: statusy plików wgranych przez zalogowanego (A, C). */
 @Component({
   selector: 'app-my-submissions-page',
-  imports: [DatePipe, DecimalPipe, RouterLink],
+  imports: [DatePipe, FileSizePipe, RouterLink],
   template: `
     <div class="mb-4 flex items-center justify-between gap-2">
       <h2 class="text-2xl font-bold">Moje zgłoszenia</h2>
@@ -45,7 +46,7 @@ export const SUBMISSIONS_POLL_MS = 5000;
                   <div class="text-xs opacity-70">{{ asset.originalFilename }}</div>
                 }
               </td>
-              <td>{{ asset.sizeBytes / 1048576 | number: '1.0-1' }} MB</td>
+              <td>{{ asset.sizeBytes | fileSize }}</td>
               <td>{{ asset.createdAt | date: 'short' }}</td>
               <td>
                 <span class="badge {{ status[asset.status].badge }}">
