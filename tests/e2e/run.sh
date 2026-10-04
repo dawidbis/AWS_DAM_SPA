@@ -84,6 +84,9 @@ cleanup() {
   for user in "${USERS[@]}"; do
     aws cognito-idp admin-delete-user --user-pool-id "$POOL" --username "$user" >/dev/null 2>&1
   done
+  if [[ -f "$WORK/uploaded-assets" ]]; then
+    mapfile -t -O "${#ASSETS[@]}" ASSETS <"$WORK/uploaded-assets"
+  fi
   for asset in "${ASSETS[@]}"; do
     aws dynamodb delete-item --table-name "$TABLE" --key "{\"pk\":{\"S\":\"ASSET#$asset\"}}" >/dev/null 2>&1
     aws dynamodb delete-item --table-name "$INCIDENTS" --key "{\"incidentId\":{\"S\":\"$asset\"}}" >/dev/null 2>&1
@@ -135,7 +138,9 @@ upload() {
   code="$(api "$group" POST /uploads "$(jq -nc --arg f "$name" --argjson s "$size" --arg t "$type" '{filename:$f,size:$s,contentType:$t}')")"
   [[ "$code" == 201 || "$code" == 200 ]] || { echo "upload-init $code: $(cat "$WORK/response.json")" >&2; return 1; }
   asset="$(jq -r .assetId "$WORK/response.json")"
-  ASSETS+=("$asset")
+  # upload działa w podpowłoce ($(upload …)), więc ASSETS+= by przepadło:
+  # ID trafia do pliku, który czyta sprzątanie (także po przerwaniu skryptu).
+  echo "$asset" >>"$WORK/uploaded-assets"
   local part_size
   part_size="$(jq -r .partSize "$WORK/response.json")"
   jq -c '.parts[]' "$WORK/response.json" >"$WORK/parts"
