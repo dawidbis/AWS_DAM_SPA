@@ -102,12 +102,15 @@ export class DictionariesService {
  * format sprawdza backend (`shared::dictionary::is_slug`).
  */
 export function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .replaceAll('ł', 'l')
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 64);
+  return (
+    text
+      .toLowerCase()
+      .replaceAll('ł', 'l')
+      // Rozkład na litery i znaki diakrytyczne (NFD), potem usunięcie znaków (\p{M}).
+      .normalize('NFD')
+      .replaceAll(/\p{M}/gu, '')
+      .replaceAll(/[^a-z0-9]+/g, '-')
+      .replaceAll(/^-+|-+$/g, '')
+      .slice(0, 64)
+  );
 }
