@@ -28,6 +28,9 @@ interface KindConfig {
 /** Wpis słownika w formularzu: wartości jako tekst/flagi, `id` osobno. */
 type Draft = Record<string, string | boolean>;
 
+/** Wiersz tabeli: wpis dowolnego słownika (wszystkie pola są prymitywami). */
+type DictionaryRow = { id: string } & Record<string, string | number | boolean | null>;
+
 /**
  * Słowniki klubu (A): zawodnicy, sezony, rozgrywki, mecze, sponsorzy.
  * Formularz jest wspólny, a pola wynikają z konfiguracji rodzaju. Walidację
@@ -82,9 +85,9 @@ type Draft = Record<string, string | boolean>;
           </tr>
         </thead>
         <tbody>
-          @for (entry of entries(); track entry['id']) {
-            <tr [attr.data-testid]="'entry-' + entry['id']">
-              <td class="font-mono text-xs">{{ entry['id'] }}</td>
+          @for (entry of entries(); track entry.id) {
+            <tr [attr.data-testid]="'entry-' + entry.id">
+              <td class="font-mono text-xs">{{ entry.id }}</td>
               @for (field of active().fields; track field.key) {
                 <td>{{ display(field, entry[field.key]) }}</td>
               }
@@ -93,7 +96,7 @@ type Draft = Record<string, string | boolean>;
                 <button
                   class="btn btn-xs btn-error btn-outline"
                   type="button"
-                  (click)="remove(String(entry['id']))"
+                  (click)="remove(entry.id)"
                 >
                   Usuń
                 </button>
@@ -191,7 +194,6 @@ type Draft = Record<string, string | boolean>;
 export class DictionariesPage {
   protected readonly dictionaries = inject(DictionariesService);
   private readonly confirm = inject(BROWSER_CONFIRM);
-  protected readonly String = String;
 
   protected readonly configs: KindConfig[] = [
     {
@@ -265,7 +267,7 @@ export class DictionariesPage {
   protected readonly message = signal<{ ok: boolean; text: string } | null>(null);
 
   protected readonly entries = computed(
-    () => this.dictionaries.data()[this.active().kind] as unknown as Record<string, unknown>[],
+    () => this.dictionaries.data()[this.active().kind] as DictionaryRow[],
   );
 
   constructor() {
@@ -283,14 +285,14 @@ export class DictionariesPage {
     this.reset();
   }
 
-  protected display(field: Field, value: unknown): string {
+  protected display(field: Field, value: DictionaryRow[string] | undefined): string {
     if (field.type === 'checkbox') {
       return value ? 'tak' : 'nie';
     }
     if (field.type === 'select' && typeof value === 'string') {
       return field.options?.().find((option) => option.value === value)?.label ?? value;
     }
-    return value === null || value === undefined ? '' : String(value);
+    return value === null || value === undefined ? '' : `${value}`;
   }
 
   protected set(key: string, value: string | boolean): void {
@@ -306,16 +308,14 @@ export class DictionariesPage {
     this.id.set(value.trim());
   }
 
-  protected edit(entry: Record<string, unknown>): void {
+  protected edit(entry: DictionaryRow): void {
     const draft: Draft = {};
     for (const field of this.active().fields) {
-      const value = entry[field.key];
-      draft[field.key] =
-        field.type === 'checkbox' ? Boolean(value) : value == null ? '' : String(value);
+      draft[field.key] = toDraftValue(field, entry[field.key]);
     }
     this.draft.set(draft);
-    this.id.set(String(entry['id']));
-    this.editingId.set(String(entry['id']));
+    this.id.set(entry.id);
+    this.editingId.set(entry.id);
     this.message.set(null);
   }
 
@@ -376,6 +376,17 @@ export class DictionariesPage {
         this.message.set({ ok: false, text: apiMessage(error, 'Nie udało się usunąć wpisu.') }),
     });
   }
+}
+
+/** Wartość wpisu w formularzu: flaga dla checkboxa, tekst dla reszty (brak = pusty). */
+function toDraftValue(field: Field, value: DictionaryRow[string] | undefined): string | boolean {
+  if (field.type === 'checkbox') {
+    return Boolean(value);
+  }
+  if (value === null || value === undefined) {
+    return '';
+  }
+  return `${value}`;
 }
 
 /** Komunikat błędu z API (`{ message }`) albo tekst domyślny. */
