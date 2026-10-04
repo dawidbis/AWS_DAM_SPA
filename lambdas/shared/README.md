@@ -14,6 +14,8 @@ Kod: [`src/`](src/). Każdy moduł ma na górze komentarz `//!` z opisem i odwo�
 | [`upload`](src/upload.rs) | limity (200 MB, części 5/8 MiB, 10 000 części), `ALLOWED_CONTENT_TYPES`, JSON Schema `POST /uploads`, `InitUploadRequest::validate`, `part_size_for`, `check_parts` | upload-* , validate |
 | [`multipart`](src/multipart.rs) | klient S3 bez zbędnych sum kontrolnych, `presign_parts`, `list_parts`, `complete`, `abort`, `quarantine_key` | upload-* |
 | [`assets`](src/assets.rs) | klucz `ASSET#<id>`, `UploadSession`, `get_upload_session`, `get_status`, `transition`, `transition_idempotent`, `now_millis` | API i pipeline |
+| [`dictionary`](src/dictionary.rs) | `DictionaryKind`, `Player`, `Season`, `Competition`, `Match`, `Sponsor`, `Dictionaries`, `DictionaryEntry` (walidacja, zapis jako `kind`/`id`/`data`), `is_slug`, `is_iso_date` | dictionaries-*, asset-metadata |
+| [`metadata`](src/metadata.rs) | `AssetCategory`, `AssetMetadata`, JSON Schema `PUT /assets/{id}/metadata`, normalizacja tagów, `references`, `align_with_match` | asset-metadata, catalog |
 | [`catalog`](src/catalog.rs) | `AssetView`, `AssetSummary`, `AssetListResponse`, `DownloadResponse`, `AssetStatusResponse`, `AssetDeletedResponse`, `preview_source`, `watermark_only`, `status_for_uploader`, `can_download`, `can_delete`, `Cursor`, `is_asset_id`, `attachment_filename` | assets-read, asset-* |
 | [`pipeline`](src/pipeline.rs) | `StepInput`, `ScanOutcome`, `ValidationOutcome`, `DisarmOutcome`, `RenditionsOutcome`, `PreservedMetadata`, `limits`, klucze (`thumbnail_key`, `preview_key`, `staging_key`), `execution_name`, `move_object`, `delete_object` | pipeline, asset-rescan, asset-delete |
 | [`telemetry`](src/telemetry.rs) | logi JSON przez `tracing` (`RUST_LOG`, bez czasu i kolorów — CloudWatch dodaje własny czas) | wszystkie |
@@ -86,11 +88,23 @@ Pola `verdict` i `result` rozgałęziają maszynę stanów (warunki JSONata w `i
 | `MAX_DIMENSION` / `MAX_PIXELS` | 20 000 px / 100 000 000 |
 | `PART_URL_TTL` | 1 h |
 
-Schemat [`schemas/upload-init.schema.json`](schemas/upload-init.schema.json) jest wkompilowany (`include_str!`) i walidowany przy każdym `POST /uploads`. Test `schema_limits_match_rust_constants` pilnuje, że limity w schemacie są zgodne ze stałymi Rusta.
+Schematy [`schemas/upload-init.schema.json`](schemas/upload-init.schema.json) (`POST /uploads`) i [`schemas/asset-metadata.schema.json`](schemas/asset-metadata.schema.json) (`PUT /assets/{id}/metadata`) są wkompilowane (`include_str!`) i walidowane przy każdym żądaniu. Testy `schema_limits_match_rust_constants` pilnują, że limity w schematach są zgodne ze stałymi Rusta.
+
+### Słowniki (`dictionary`)
+
+| Reguła | Wartość |
+|---|---|
+| Identyfikator (slug) | małe litery ASCII, cyfry, `-`, maks. 64 znaki, bez `-` na początku |
+| Nazwy (zawodnik, rozgrywki, przeciwnik, sponsor) | przycięte, 1–100 znaków, bez znaków sterujących i `<>` |
+| Numer zawodnika | 1–99 |
+| Data meczu | `RRRR-MM-DD`, poprawny dzień miesiąca |
+| Rekord DynamoDB | `kind` (`PLAYER`, `SEASON`, `COMPETITION`, `MATCH`, `SPONSOR`), `id`, `data` (wpis jako JSON) |
+
+Test `seed_file_contains_valid_entries` sprawdza, że plik [`scripts/seed/dictionaries.json`](../../scripts/seed/dictionaries.json) przechodzi tę samą walidację co API, a mecze wskazują istniejące sezony i rozgrywki.
 
 ## Typy TypeScript
 
-Typy z `#[cfg_attr(test, derive(ts_rs::TS), ts(export))]` (`AssetStatus`, `AssetView`, `AssetSummary`, `AssetListResponse`, `DownloadResponse`, `AssetStatusResponse`, `AssetDeletedResponse`) są eksportowane przy `cargo test` do `frontend/src/app/core/api/generated-types/` (katalog ustawia `lambdas/.cargo/config.toml`). CI (krok „Typy TypeScript z Rusta są aktualne”) failuje, jeśli wygenerowane pliki różnią się od tych w repo — po zmianie typu trzeba uruchomić `cargo test` i zacommitować wynik.
+Typy z `#[cfg_attr(test, derive(ts_rs::TS), ts(export))]` (`AssetStatus`, `AssetView`, `AssetSummary`, `AssetListResponse`, `DownloadResponse`, `AssetStatusResponse`, `AssetDeletedResponse`, `AssetCategory`, `AssetMetadata`, `Dictionaries`, `DictionaryKind`, `Player`, `Position`, `Season`, `Competition`, `Match`, `Sponsor`) są eksportowane przy `cargo test` do `frontend/src/app/core/api/generated-types/` (katalog ustawia `lambdas/.cargo/config.toml`). CI (krok „Typy TypeScript z Rusta są aktualne”) failuje, jeśli wygenerowane pliki różnią się od tych w repo — po zmianie typu trzeba uruchomić `cargo test` i zacommitować wynik.
 
 ## Feature `testing`
 

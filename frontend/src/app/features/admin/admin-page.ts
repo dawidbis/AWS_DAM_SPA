@@ -1,19 +1,29 @@
 import { Component, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 
 import { AssetPager } from '../../core/api/asset-pager';
 import { AssetsService } from '../../core/api/assets.service';
 import { DeleteAssetService } from '../../core/api/delete-asset.service';
+import { DictionariesService } from '../../core/api/dictionaries.service';
 import { DownloadService } from '../../core/api/download.service';
+import { AssetSummary } from '../../core/api/generated-types/AssetSummary';
 import { AssetCard } from '../assets/asset-card';
+import { MetadataEditor } from '../assets/metadata-editor';
 
-/** Panel A: kolejka publikacji (czyste pliki po skanie) i ponawianie nieudanych skanów. */
+/**
+ * Panel A: kolejka publikacji (czyste pliki po skanie, opis metadanych przed
+ * publikacją) i ponawianie nieudanych skanów.
+ */
 @Component({
   selector: 'app-admin-page',
-  imports: [AssetCard],
+  imports: [AssetCard, MetadataEditor, RouterLink],
   template: `
     <div class="mb-4 flex items-center justify-between gap-2">
       <h2 class="text-2xl font-bold">Do publikacji</h2>
-      <button class="btn btn-sm" type="button" (click)="pager.reload()">Odśwież</button>
+      <div class="flex gap-2">
+        <a class="btn btn-sm btn-ghost" routerLink="/admin/dictionaries">Słowniki</a>
+        <button class="btn btn-sm" type="button" (click)="pager.reload()">Odśwież</button>
+      </div>
     </div>
     <p class="mb-4 text-sm opacity-80">
       Pliki, które przeszły skan antywirusowy. Po publikacji są widoczne w galerii dla grup A i B.
@@ -55,6 +65,7 @@ import { AssetCard } from '../assets/asset-card';
           >
             Usuń
           </button>
+          <button class="btn btn-sm" type="button" (click)="editing.set(asset)">Opisz</button>
           <button
             class="btn btn-sm btn-primary"
             type="button"
@@ -117,6 +128,14 @@ import { AssetCard } from '../assets/asset-card';
     @if (failed.nextCursor() && failed.state() !== 'loading') {
       <button class="btn btn-sm mt-4" type="button" (click)="failed.more()">Załaduj więcej</button>
     }
+
+    @if (editing(); as asset) {
+      <app-metadata-editor
+        [asset]="asset"
+        (saved)="onMetadataSaved($event)"
+        (closed)="editing.set(null)"
+      />
+    }
   `,
 })
 export class AdminPage {
@@ -129,10 +148,19 @@ export class AdminPage {
   protected readonly publishing = signal<string | null>(null);
   protected readonly rescanning = signal<string | null>(null);
   protected readonly message = signal<{ ok: boolean; text: string } | null>(null);
+  /** Asset, którego metadane są edytowane. */
+  protected readonly editing = signal<AssetSummary | null>(null);
 
   constructor() {
+    inject(DictionariesService).load();
     this.pager.reload();
     this.failed.reload();
+  }
+
+  protected onMetadataSaved(asset: AssetSummary): void {
+    this.pager.replace(asset);
+    this.editing.set(null);
+    this.message.set({ ok: true, text: 'Zapisano opis.' });
   }
 
   protected rescan(assetId: string): void {

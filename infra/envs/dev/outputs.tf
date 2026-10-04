@@ -71,3 +71,7 @@ output "incidents_table" {
 output "scan_state_machine_arn" {
   value = module.scanner.state_machine_arn
 }
+
+output "dictionaries_table" {
+  value = module.data.dictionaries_table_name
+}

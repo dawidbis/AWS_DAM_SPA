@@ -6,7 +6,9 @@
 pub mod assets;
 pub mod auth;
 pub mod catalog;
+pub mod dictionary;
 pub mod http;
+pub mod metadata;
 pub mod multipart;
 pub mod pipeline;
 pub mod status;

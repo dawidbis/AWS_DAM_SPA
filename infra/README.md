@@ -40,7 +40,7 @@ infra/
 | `frontend-hosting` | [README](modules/frontend-hosting/README.md) | bucket SPA, dystrybucja CloudFront, polityka nagłówków, `config.json` |
 | `access-logs` | [README](modules/access-logs/README.md) | bucket logów (30 dni) |
 | `storage` | [README](modules/storage/README.md) | 4 buckety plików, lifecycle, Object Lock, CORS, polityki Deny |
-| `data` | [README](modules/data/README.md) | tabele `assets`, `incidents` |
+| `data` | [README](modules/data/README.md) | tabele `assets`, `incidents`, `dictionaries` |
 | `http-api` | [README](modules/http-api/README.md) | HTTP API, autoryzator JWT, stage z throttlingiem i logami, integracje |
 | `scanner` | [README](modules/scanner/README.md) | ECR, SQS + DLQ, reguły EventBridge, 6 Lambd pipeline'u, maszyna stanów, SNS |
 
@@ -98,7 +98,7 @@ Uwaga na cykl: frontend potrzebuje adresów Cognito i API (`config.json`), a Cog
 
 ## Outputs
 
-`frontend_url`, `frontend_bucket`, `frontend_distribution_id`, `frontend_config`, `api_url`, `cognito_user_pool_id`, `cognito_client_id`, `cognito_e2e_client_id`, `cognito_issuer_url`, `cognito_domain_url`, `storage_buckets`, `assets_table`, `incidents_table`, `scanner_repository_name`, `scanner_repository_url`, `scan_dlq_url`, `scan_state_machine_arn`, `hello_world_function_name`.
+`frontend_url`, `frontend_bucket`, `frontend_distribution_id`, `frontend_config`, `api_url`, `cognito_user_pool_id`, `cognito_client_id`, `cognito_e2e_client_id`, `cognito_issuer_url`, `cognito_domain_url`, `storage_buckets`, `assets_table`, `incidents_table`, `dictionaries_table`, `scanner_repository_name`, `scanner_repository_url`, `scan_dlq_url`, `scan_state_machine_arn`, `hello_world_function_name`.
 
 ```bash
 terraform -chdir=infra/envs/dev output -raw api_url

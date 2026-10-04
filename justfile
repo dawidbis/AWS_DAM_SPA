@@ -106,3 +106,7 @@ invoke-hello name="Kibic":
 # Testy e2e scenariuszy z rozdziału 12 na dev (wymaga sesji AWS administratora)
 e2e:
     ./tests/e2e/run.sh
+
+# Początkowe słowniki klubu (tylko do pustej tabeli; robi to też deploy)
+seed:
+    ./scripts/seed-dictionaries.sh

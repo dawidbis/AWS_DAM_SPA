@@ -358,6 +358,89 @@ module "asset_delete" {
   }
 }
 
+# --- Słowniki i metadane assetów (etap 3) -----------------------------------------
+# Odczyt słowników: każda grupa (filtry, etykiety). Zapis słowników i metadanych
+# assetów: tylko A (sprawdza Lambda). Każda funkcja ma osobną rolę.
+
+data "aws_iam_policy_document" "dictionaries_read" {
+  statement {
+    sid       = "ScanDictionaries"
+    actions   = ["dynamodb:Scan"]
+    resources = [module.data.dictionaries_table_arn]
+  }
+}
+
+data "aws_iam_policy_document" "dictionaries_write" {
+  statement {
+    sid       = "EditDictionaries"
+    actions   = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:DeleteItem", "dynamodb:Query"]
+    resources = [module.data.dictionaries_table_arn]
+  }
+}
+
+data "aws_iam_policy_document" "asset_metadata" {
+  statement {
+    sid       = "ResolveDictionaryReferences"
+    actions   = ["dynamodb:BatchGetItem"]
+    resources = [module.data.dictionaries_table_arn]
+  }
+
+  statement {
+    sid       = "UpdateAssetMetadata"
+    actions   = ["dynamodb:UpdateItem"]
+    resources = [module.data.assets_table_arn]
+  }
+}
+
+module "dictionaries_read" {
+  source = "../../modules/rust-lambda"
+
+  name                     = "dictionaries-read"
+  function_name            = "${local.name_prefix}-dictionaries-read"
+  description              = "GET /dictionaries: słowniki klubu (sponsorzy tylko dla A)"
+  zip_path                 = "${var.lambda_artifacts_dir}/api-dictionaries-read/bootstrap.zip"
+  permissions_boundary_arn = data.aws_iam_policy.permissions_boundary.arn
+
+  policies = { main = data.aws_iam_policy_document.dictionaries_read.json }
+
+  environment = {
+    DICTIONARIES_TABLE = module.data.dictionaries_table_name
+  }
+}
+
+module "dictionaries_write" {
+  source = "../../modules/rust-lambda"
+
+  name                     = "dictionaries-write"
+  function_name            = "${local.name_prefix}-dictionaries-write"
+  description              = "PUT i DELETE /dictionaries/{kind}/{id}: edycja słowników przez A"
+  zip_path                 = "${var.lambda_artifacts_dir}/api-dictionaries-write/bootstrap.zip"
+  permissions_boundary_arn = data.aws_iam_policy.permissions_boundary.arn
+
+  policies = { main = data.aws_iam_policy_document.dictionaries_write.json }
+
+  environment = {
+    DICTIONARIES_TABLE = module.data.dictionaries_table_name
+  }
+}
+
+module "asset_metadata" {
+  source = "../../modules/rust-lambda"
+
+  name                     = "asset-metadata"
+  function_name            = "${local.name_prefix}-asset-metadata"
+  description              = "PUT /assets/{assetId}/metadata: kategoria, mecz, zawodnicy, tagi (A)"
+  zip_path                 = "${var.lambda_artifacts_dir}/api-asset-metadata/bootstrap.zip"
+  permissions_boundary_arn = data.aws_iam_policy.permissions_boundary.arn
+
+  policies = { main = data.aws_iam_policy_document.asset_metadata.json }
+
+  environment = {
+    ASSETS_TABLE       = module.data.assets_table_name
+    DICTIONARIES_TABLE = module.data.dictionaries_table_name
+  }
+}
+
 module "api" {
   source = "../../modules/http-api"
 
@@ -376,5 +459,9 @@ module "api" {
     "POST /assets/{assetId}/publish"   = { function_name = module.asset_publish.function_name, function_arn = module.asset_publish.function_arn }
     "POST /assets/{assetId}/rescan"    = { function_name = module.asset_rescan.function_name, function_arn = module.asset_rescan.function_arn }
     "DELETE /assets/{assetId}"         = { function_name = module.asset_delete.function_name, function_arn = module.asset_delete.function_arn }
+    "PUT /assets/{assetId}/metadata"   = { function_name = module.asset_metadata.function_name, function_arn = module.asset_metadata.function_arn }
+    "GET /dictionaries"                = { function_name = module.dictionaries_read.function_name, function_arn = module.dictionaries_read.function_arn }
+    "PUT /dictionaries/{kind}/{id}"    = { function_name = module.dictionaries_write.function_name, function_arn = module.dictionaries_write.function_arn }
+    "DELETE /dictionaries/{kind}/{id}" = { function_name = module.dictionaries_write.function_name, function_arn = module.dictionaries_write.function_arn }
   }
 }

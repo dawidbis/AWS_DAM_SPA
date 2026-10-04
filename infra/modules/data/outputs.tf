@@ -13,3 +13,11 @@ output "incidents_table_name" {
 output "incidents_table_arn" {
   value = aws_dynamodb_table.incidents.arn
 }
+
+output "dictionaries_table_name" {
+  value = aws_dynamodb_table.dictionaries.name
+}
+
+output "dictionaries_table_arn" {
+  value = aws_dynamodb_table.dictionaries.arn
+}

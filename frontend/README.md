@@ -47,6 +47,8 @@ src/app/
 │   │   ├── asset-status.ts                etykiety i kolory statusów, isInProgress
 │   │   ├── download.service.ts            pobranie: presigned URL → nawigacja przeglądarki
 │   │   ├── delete-asset.service.ts        potwierdzenie i usunięcie assetu
+│   │   ├── dictionaries.service.ts        słowniki w pamięci (nazwy, listy wyboru), zapis, slugify
+│   │   ├── asset-labels.ts                nazwy kategorii i pozycji zawodników
 │   │   └── me.service.ts                  GET /me
 │   ├── upload/
 │   │   ├── upload.service.ts              orkiestracja uploadu (stan jako sygnał)
@@ -60,8 +62,10 @@ src/app/
 │   ├── gallery/gallery-page.ts            galeria (A, B, D), pobieranie, usuwanie (A)
 │   ├── upload/upload-page.ts              formularz uploadu z postępem (A, C)
 │   ├── submissions/my-submissions-page.ts moje zgłoszenia, auto-odświeżanie co 5 s (A, C)
-│   ├── admin/admin-page.ts                kolejka publikacji, nieudane skany: publikuj, ponów, usuń (A)
-│   └── assets/asset-card.ts               kafelek assetu z podglądem
+│   ├── admin/admin-page.ts                kolejka publikacji, nieudane skany: publikuj, opisz, ponów, usuń (A)
+│   ├── admin/dictionaries-page.ts         słowniki: zawodnicy, sezony, rozgrywki, mecze, sponsorzy (A)
+│   ├── assets/asset-card.ts               kafelek assetu: podgląd, kategoria, mecz, zawodnicy, tagi
+│   └── assets/metadata-editor.ts          okno edycji metadanych assetu (A)
 └── testing/                               fake OIDC, fabryka assetów do testów
 ```
 
@@ -75,6 +79,7 @@ src/app/
 | `/upload` | upload | A, C |
 | `/my-submissions` | moje zgłoszenia | A, C |
 | `/admin` | panel administratora | A |
+| `/admin/dictionaries` | słowniki klubu | A |
 | `/forbidden` | brak dostępu | — |
 
 Strażnik i ukrywanie przycisków to **wyłącznie UX**. Każde żądanie i tak sprawdza API (grupy z tokenu w każdej Lambdzie).
@@ -112,10 +117,16 @@ sequenceDiagram
 - Wznowienie: po ponownym wybraniu tego samego pliku (nazwa, rozmiar, data modyfikacji) upload rusza od brakujących części. Bez IndexedDB (tryb prywatny) wznawianie po prostu nie jest dostępne.
 - Formularz akceptuje tylko JPEG, PNG i WebP do 200 MB (te same limity sprawdza backend).
 
+## Słowniki i metadane (etap 3)
+
+- `DictionariesService` ładuje `GET /dictionaries` raz (galeria, panel admina, edytor) i trzyma dane w sygnale. Kafelki wyświetlają nazwy zawodników, meczów i sezonów, a wpis usunięty ze słownika pokazują jako identyfikator.
+- **Słowniki** (`/admin/dictionaries`): zakładki dla pięciu rodzajów, tabela wpisów, wspólny formularz. Pola wynikają z konfiguracji rodzaju. Identyfikator nowego wpisu jest proponowany z nazwy (`slugify`: „Łukasz Sokół” → `lukasz-sokol`), a dla meczu z daty i przeciwnika. Komunikaty błędów (np. 409 przy usuwaniu sezonu używanego przez mecz) pochodzą z API.
+- **Edytor metadanych** (przycisk **Opisz**): wybór meczu ustawia i blokuje sezon i rozgrywki, zawodnicy to checkboxy (byli oznaczeni), tagi wpisuje się po przecinku. Po zapisie kafelek jest podmieniany (`AssetPager.replace`).
+
 ## Typy z backendu
 
 Katalog `core/api/generated-types/` generuje `cargo test` w `lambdas/` (`ts-rs`). Zmiana modelu w Ruście → `cargo test` → commit wygenerowanych plików; CI sprawdza, że są aktualne. `STATUS_PRESENTATION: Record<AssetStatus, …>` wymusza obsłużenie każdego nowego statusu w UI (błąd kompilacji, jeśli go zabraknie).
 
 ## Testy
 
-Vitest + jsdom, testy przy komponentach i serwisach (`*.spec.ts`): strażnik grup, konfiguracja OIDC, serwisy API, upload (protokół, ponowienia, wznawianie), galeria (podglądy, pobieranie, usuwanie z potwierdzeniem, brak przycisków dla B/D), panel admina, moje zgłoszenia. `FakeOidcSecurityService` w `testing/` pozwala symulować zalogowanego użytkownika z dowolnymi grupami.
+Vitest + jsdom, testy przy komponentach i serwisach (`*.spec.ts`): strażnik grup, konfiguracja OIDC, serwisy API, upload (protokół, ponowienia, wznawianie), galeria (podglądy, pobieranie, usuwanie z potwierdzeniem, brak przycisków dla B/D), panel admina, moje zgłoszenia, kafelek (etykiety słowników), edytor metadanych (mecz → sezon, zapis, błąd API), strona słowników (slug z nazwy, zapis, 409 przy usuwaniu). W `testing/`: `FakeOidcSecurityService` symuluje zalogowanego użytkownika z dowolnymi grupami, a `provideFakeDictionaries` dostarcza gotowe słowniki bez żądań do API.

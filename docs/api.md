@@ -20,6 +20,10 @@ Typy odpowiedzi są zdefiniowane w Ruście (`lambdas/shared/src/catalog.rs`) i g
 | `POST /assets/{assetId}/publish` | [`asset-publish`](../lambdas/api/asset-publish/README.md) | A | publikacja |
 | `POST /assets/{assetId}/rescan` | [`asset-rescan`](../lambdas/api/asset-rescan/README.md) | A | ponowienie skanu |
 | `DELETE /assets/{assetId}` | [`asset-delete`](../lambdas/api/asset-delete/README.md) | A | usunięcie assetu |
+| `PUT /assets/{assetId}/metadata` | [`asset-metadata`](../lambdas/api/asset-metadata/README.md) | A | metadane: kategoria, mecz, zawodnicy, tagi |
+| `GET /dictionaries` | [`dictionaries-read`](../lambdas/api/dictionaries-read/README.md) | A, B, C, D | słowniki klubu (sponsorzy tylko dla A) |
+| `PUT /dictionaries/{kind}/{id}` | [`dictionaries-write`](../lambdas/api/dictionaries-write/README.md) | A | utworzenie lub zmiana wpisu słownika |
+| `DELETE /dictionaries/{kind}/{id}` | [`dictionaries-write`](../lambdas/api/dictionaries-write/README.md) | A | usunięcie wpisu słownika |
 
 Grupy: A = `admin`, B = `staff`, C = `contributor`, D = `viewer` (rozdział 14 w [`architecture.md`](architecture.md)).
 
@@ -143,7 +147,13 @@ Ponowne wywołanie po sukcesie zwraca to samo (idempotencja). Po `QUARANTINED` p
       "sizeBytes": 6123456,
       "createdAt": 1759500000000,
       "updatedAt": 1759500100000,
-      "previewUrl": "https://…s3…/thumb/0b5e….jpg?X-Amz-Signature=…"
+      "previewUrl": "https://…s3…/thumb/0b5e….jpg?X-Amz-Signature=…",
+      "category": "MATCH_PHOTO",
+      "seasonId": "2025-26",
+      "competitionId": "liga",
+      "matchId": "2025-09-13-unia-lesna",
+      "playerIds": ["michal-kruk"],
+      "tags": ["bramka"]
     }
   ],
   "nextCursor": "1759400000000.9f1c…"
@@ -154,6 +164,7 @@ Ponowne wywołanie po sukcesie zwraca to samo (idempotencja). Po `QUARANTINED` p
 - `contentType` i `sizeBytes` po pipeline'ie pochodzą z serwera (magic bytes, rozmiar kopii po CDR); przed nim to deklaracja klienta.
 - W widoku `mine` grupa C widzi `INFECTED` i `SCAN_FAILED` jako `REJECTED`, a `ARCHIVED` jest pominięty.
 - `previewUrl` jest ważny 5 minut.
+- Metadane (`category`, `seasonId`, `competitionId`, `matchId`, `playerIds`, `tags`) to identyfikatory wpisów słowników. Nazwy wyświetla frontend na podstawie `GET /dictionaries`. Asset bez opisu ma `null` i puste listy.
 
 | Kod | Kiedy |
 |---|---|
@@ -218,6 +229,67 @@ Usuwa pliki assetu (`clean`, `clean/staging`, `renditions`, `quarantine`) i reko
 | 403 | nie A |
 | 404 | asset nie istnieje lub ID nie jest UUID |
 | 409 | status nie pozwala usunąć (`UPLOADING`, `QUARANTINED`, `SCANNING`, `INFECTED`) albo zmienił się w trakcie usuwania |
+
+## `PUT /assets/{assetId}/metadata`
+
+Metadane assetu po skanie (A). Żądanie **zastępuje całość**: pole pominięte albo `null` usuwa wartość. Walidacja: [JSON Schema](../lambdas/shared/schemas/asset-metadata.schema.json) + istnienie wpisów słowników.
+
+```json
+{
+  "title": "Gol w 90. minucie",
+  "category": "MATCH_PHOTO",
+  "matchId": "2025-09-13-unia-lesna",
+  "playerIds": ["michal-kruk", "piotr-zawadzki"],
+  "tags": ["Bramka", "kibice"]
+}
+```
+
+| Pole | Reguła |
+|---|---|
+| `title` | maks. 120 znaków, bez `<>` i znaków sterujących |
+| `category` | `MATCH_PHOTO`, `TRAINING_PHOTO`, `VIDEO`, `BRAND_IDENTITY`, `SPONSOR_MATERIAL`, `PRESS_DOCUMENT` |
+| `seasonId`, `competitionId`, `matchId` | slug istniejącego wpisu; mecz wyznacza sezon i rozgrywki (puste są uzupełniane, sprzeczne → 400) |
+| `playerIds` | maks. 30 slugów istniejących zawodników, bez powtórzeń |
+| `tags` | maks. 10, każdy 1–30 znaków (litery, cyfry, spacje, myślniki); zapisywane małymi literami bez duplikatów |
+
+Odpowiedź `200`: zapisane metadane po normalizacji (np. `"tags": ["bramka", "kibice"]`, `"seasonId": "2025-26"` uzupełnione z meczu).
+
+| Kod | Kiedy |
+|---|---|
+| 400 | błąd schematu (komunikat wskazuje pole), `Nie ma wpisu players/… w słownikach`, sezon lub rozgrywki niezgodne z meczem |
+| 403 | nie A |
+| 404 | ID nie jest UUID |
+| 409 | asset nie istnieje albo nie przeszedł pipeline'u (kwarantanna, odrzucony, zainfekowany) |
+
+## `GET /dictionaries`
+
+Wszystkie słowniki naraz (każda grupa A–D; sponsorzy tylko dla A).
+
+```json
+{
+  "players": [{ "id": "michal-kruk", "name": "Michał Kruk", "number": 9, "position": "FORWARD", "active": true }],
+  "seasons": [{ "id": "2025-26", "name": "2025/26" }],
+  "competitions": [{ "id": "liga", "name": "Liga Regionalna" }],
+  "matches": [{ "id": "2025-09-13-unia-lesna", "seasonId": "2025-26", "competitionId": "liga", "opponent": "Unia Leśna", "date": "2025-09-13", "home": true }],
+  "sponsors": []
+}
+```
+
+## `PUT /dictionaries/{kind}/{id}`
+
+Utworzenie lub zastąpienie wpisu (A). `kind`: `players`, `seasons`, `competitions`, `matches`, `sponsors`. `id`: slug (małe litery, cyfry, `-`, maks. 64). Pole `id` w ciele jest błędem.
+
+| Rodzaj | Ciało |
+|---|---|
+| `players` | `{ "name": "Michał Kruk", "number": 9, "position": "FORWARD", "active": true }` (`number`, `position` opcjonalne) |
+| `seasons`, `competitions`, `sponsors` | `{ "name": "…" }` |
+| `matches` | `{ "seasonId": "2025-26", "competitionId": "liga", "opponent": "Unia Leśna", "date": "2025-09-13", "home": true }` |
+
+Odpowiedź `200`: `{ "kind": "players", "id": "michal-kruk" }`. `400`: zły slug, nieznane pole, pusta lub za długa nazwa, `<>`, numer spoza 1–99, zła data, mecz bez istniejącego sezonu lub rozgrywek. `403`: nie A. `404`: nieznany rodzaj.
+
+## `DELETE /dictionaries/{kind}/{id}`
+
+Usunięcie wpisu (A). `404`: brak wpisu. `409`: sezon lub rozgrywki, do których odwołuje się mecz. Assety odwołujące się do usuniętego wpisu zachowują identyfikator (frontend pokazuje go zamiast nazwy).
 
 ---
 

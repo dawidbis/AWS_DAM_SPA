@@ -1,12 +1,15 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 import { AssetPager } from '../../core/api/asset-pager';
 import { AssetsService } from '../../core/api/assets.service';
 import { DeleteAssetService } from '../../core/api/delete-asset.service';
+import { DictionariesService } from '../../core/api/dictionaries.service';
 import { DownloadService } from '../../core/api/download.service';
+import { AssetSummary } from '../../core/api/generated-types/AssetSummary';
 import { AuthService } from '../../core/auth/auth.service';
 import { AssetCard } from '../assets/asset-card';
+import { MetadataEditor } from '../assets/metadata-editor';
 
 /**
  * Galeria opublikowanych materiałów: A i B widzą miniatury i pobierają
@@ -14,7 +17,7 @@ import { AssetCard } from '../assets/asset-card';
  */
 @Component({
   selector: 'app-gallery-page',
-  imports: [AssetCard, RouterLink],
+  imports: [AssetCard, MetadataEditor, RouterLink],
   template: `
     <div class="mb-4 flex items-center justify-between gap-2">
       <h2 class="text-2xl font-bold">Galeria</h2>
@@ -67,6 +70,11 @@ import { AssetCard } from '../assets/asset-card';
                     Pobierz
                   </button>
                 }
+                @if (canEdit) {
+                  <button class="btn btn-sm" type="button" (click)="editing.set(asset)">
+                    Opisz
+                  </button>
+                }
                 @if (canDelete) {
                   <button
                     class="btn btn-sm btn-error btn-outline"
@@ -94,6 +102,14 @@ import { AssetCard } from '../assets/asset-card';
         }
       }
     }
+
+    @if (editing(); as asset) {
+      <app-metadata-editor
+        [asset]="asset"
+        (saved)="pager.replace($event); editing.set(null)"
+        (closed)="editing.set(null)"
+      />
+    }
   `,
 })
 export class GalleryPage {
@@ -106,10 +122,14 @@ export class GalleryPage {
   /** UX: pobieranie i tak autoryzuje API (D dostaje 403). */
   protected readonly canDownload = this.auth.hasAnyGroup(['admin', 'staff']);
   protected readonly canDelete = this.auth.hasAnyGroup(['admin']);
+  protected readonly canEdit = this.auth.hasAnyGroup(['admin']);
   protected readonly pager = new AssetPager((cursor) => this.assets.list('gallery', cursor));
+  /** Asset, którego metadane edytuje A. */
+  protected readonly editing = signal<AssetSummary | null>(null);
 
   constructor() {
     if (this.canBrowse) {
+      inject(DictionariesService).load();
       this.pager.reload();
     }
   }

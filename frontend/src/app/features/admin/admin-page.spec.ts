@@ -1,8 +1,10 @@
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 
 import { AssetsService } from '../../core/api/assets.service';
 import { asset } from '../../testing/assets';
+import { provideFakeDictionaries } from '../../testing/fake-dictionaries';
 import { AdminPage } from './admin-page';
 
 describe('AdminPage', () => {
@@ -22,7 +24,11 @@ describe('AdminPage', () => {
     };
     TestBed.configureTestingModule({
       imports: [AdminPage],
-      providers: [{ provide: AssetsService, useValue: assets }],
+      providers: [
+        { provide: AssetsService, useValue: assets },
+        provideRouter([]),
+        ...provideFakeDictionaries(),
+      ],
     });
     const fixture = TestBed.createComponent(AdminPage);
     await fixture.whenStable();

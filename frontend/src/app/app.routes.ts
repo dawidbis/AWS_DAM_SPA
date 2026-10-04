@@ -3,6 +3,7 @@ import { Routes } from '@angular/router';
 import { AuthCallback } from './core/auth/auth-callback';
 import { requireGroups } from './core/auth/require-groups.guard';
 import { AdminPage } from './features/admin/admin-page';
+import { DictionariesPage } from './features/admin/dictionaries-page';
 import { GalleryPage } from './features/gallery/gallery-page';
 import { HomePage } from './features/pages/home-page';
 import { PlaceholderPage } from './features/pages/placeholder-page';
@@ -29,6 +30,12 @@ export const routes: Routes = [
     component: MySubmissionsPage,
     canActivate: [requireGroups('admin', 'contributor')],
     title: 'Moje zgłoszenia',
+  },
+  {
+    path: 'admin/dictionaries',
+    component: DictionariesPage,
+    canActivate: [requireGroups('admin')],
+    title: 'Słowniki',
   },
   {
     path: 'admin',

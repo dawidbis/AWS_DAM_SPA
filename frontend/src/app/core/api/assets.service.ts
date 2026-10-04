@@ -5,6 +5,7 @@ import { Observable } from 'rxjs';
 import { RUNTIME_CONFIG } from '../config/runtime-config';
 import { AssetDeletedResponse } from './generated-types/AssetDeletedResponse';
 import { AssetListResponse } from './generated-types/AssetListResponse';
+import { AssetMetadata } from './generated-types/AssetMetadata';
 import { AssetView } from './generated-types/AssetView';
 import { DownloadResponse } from './generated-types/DownloadResponse';
 import { AssetStatusResponse } from './generated-types/AssetStatusResponse';
@@ -45,6 +46,17 @@ export class AssetsService {
     return this.http.post<AssetStatusResponse>(
       `${this.apiUrl}/assets/${encodeURIComponent(assetId)}/rescan`,
       {},
+    );
+  }
+
+  /**
+   * Metadane assetu (A): zastępuje całość, odpowiedź to zapisane metadane
+   * po normalizacji (np. sezon i rozgrywki uzupełnione z meczu).
+   */
+  updateMetadata(assetId: string, metadata: AssetMetadata): Observable<AssetMetadata> {
+    return this.http.put<AssetMetadata>(
+      `${this.apiUrl}/assets/${encodeURIComponent(assetId)}/metadata`,
+      metadata,
     );
   }
 

@@ -1,6 +1,6 @@
 # Moduł `data` — DynamoDB
 
-Dwie tabele: `assets` (stan każdego pliku) i `incidents` (wykrycia malware). Obie on-demand (`PAY_PER_REQUEST`), z Point-in-Time Recovery i szyfrowaniem kluczem należącym do AWS.
+Trzy tabele: `assets` (stan każdego pliku), `incidents` (wykrycia malware) i `dictionaries` (słowniki klubu, etap 3). Wszystkie on-demand (`PAY_PER_REQUEST`), z Point-in-Time Recovery i szyfrowaniem kluczem należącym do AWS.
 
 ## `assets` — `<name_prefix>-assets`
 
@@ -27,9 +27,18 @@ Statusy zmieniane są **wyłącznie warunkowymi zapisami** (`ConditionExpression
 
 Atrybuty: `assetId`, `uploaderId`, `sourceIp`, `signature`, `engine`, `detectedAt`, `status` (`OPEN`), `alertSentAt`. Zapisuje tylko `dam-handle-infected`. Panel incydentów w UI: etap 3.
 
+## `dictionaries` — `<name_prefix>-dictionaries`
+
+| Klucz | Typ | Wartość |
+|---|---|---|
+| `kind` (HASH) | S | `PLAYER`, `SEASON`, `COMPETITION`, `MATCH`, `SPONSOR` |
+| `id` (RANGE) | S | slug nadany przez A, np. `michal-kruk`, `2025-26` |
+
+Atrybut `data`: wpis jako JSON (`shared::dictionary`). Tabela ma kilkadziesiąt rekordów, więc lista to `Scan` (`dictionaries-read`) albo `Query` po `kind` (`dictionaries-write` sprawdza mecze przed usunięciem sezonu). Początkowe dane: [`scripts/seed/dictionaries.json`](../../../scripts/seed/dictionaries.json), wgrywane przez `scripts/seed-dictionaries.sh` tylko do pustej tabeli (krok deployu).
+
 ## Zmienne / outputs
 
-Zmienne: `name_prefix`, `deletion_protection` (domyślnie `false` w dev). Outputs: `assets_table_name`, `assets_table_arn`, `incidents_table_name`, `incidents_table_arn`.
+Zmienne: `name_prefix`, `deletion_protection` (domyślnie `false` w dev). Outputs: `assets_table_name`, `assets_table_arn`, `incidents_table_name`, `incidents_table_arn`, `dictionaries_table_name`, `dictionaries_table_arn`.
 
 ## Przydatne zapytania
 

@@ -1,0 +1,36 @@
+{
+  "seasons": [
+    { "id": "2024-25", "name": "2024/25" },
+    { "id": "2025-26", "name": "2025/26" }
+  ],
+  "competitions": [
+    { "id": "liga", "name": "Liga Regionalna" },
+    { "id": "puchar", "name": "Puchar Regionu" },
+    { "id": "towarzyskie", "name": "Mecze towarzyskie" }
+  ],
+  "players": [
+    { "id": "piotr-zawadzki", "name": "Piotr Zawadzki", "number": 1, "position": "GOALKEEPER", "active": true },
+    { "id": "marek-lis", "name": "Marek Lis", "number": 2, "position": "DEFENDER", "active": true },
+    { "id": "tomasz-wrona", "name": "Tomasz Wrona", "number": 4, "position": "DEFENDER", "active": true },
+    { "id": "kamil-sowa", "name": "Kamil Sowa", "number": 5, "position": "DEFENDER", "active": true },
+    { "id": "adrian-bielski", "name": "Adrian Bielski", "number": 6, "position": "MIDFIELDER", "active": true },
+    { "id": "jakub-orzel", "name": "Jakub Orzeł", "number": 8, "position": "MIDFIELDER", "active": true },
+    { "id": "michal-kruk", "name": "Michał Kruk", "number": 9, "position": "FORWARD", "active": true },
+    { "id": "lukasz-sokol", "name": "Łukasz Sokół", "number": 10, "position": "MIDFIELDER", "active": true },
+    { "id": "dawid-jastrzab", "name": "Dawid Jastrząb", "number": 11, "position": "FORWARD", "active": true },
+    { "id": "pawel-gil", "name": "Paweł Gil", "number": 17, "position": "MIDFIELDER", "active": true },
+    { "id": "rafal-czapla", "name": "Rafał Czapla", "number": 23, "position": "FORWARD", "active": false }
+  ],
+  "matches": [
+    { "id": "2025-08-09-gornik-dolny", "seasonId": "2025-26", "competitionId": "liga", "opponent": "Górnik Dolny", "date": "2025-08-09", "home": true },
+    { "id": "2025-08-16-sparta-rzeczna", "seasonId": "2025-26", "competitionId": "liga", "opponent": "Sparta Rzeczna", "date": "2025-08-16", "home": false },
+    { "id": "2025-08-27-orleta-polne", "seasonId": "2025-26", "competitionId": "puchar", "opponent": "Orlęta Polne", "date": "2025-08-27", "home": true },
+    { "id": "2025-09-13-unia-lesna", "seasonId": "2025-26", "competitionId": "liga", "opponent": "Unia Leśna", "date": "2025-09-13", "home": true },
+    { "id": "2025-07-19-fc-gosc", "seasonId": "2024-25", "competitionId": "towarzyskie", "opponent": "FC Gość", "date": "2025-07-19", "home": true }
+  ],
+  "sponsors": [
+    { "id": "bank-matchday", "name": "Bank Matchday" },
+    { "id": "browar-zielony", "name": "Browar Zielony" },
+    { "id": "auto-serwis-szybki", "name": "Auto Serwis Szybki" }
+  ]
+}

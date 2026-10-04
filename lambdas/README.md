@@ -1,6 +1,6 @@
 # Lambdy — Matchday DAM
 
-Cargo workspace z całym backendem: 16 funkcji AWS Lambda w Ruście (edition 2024) i wspólna biblioteka [`shared`](shared/README.md). Każda funkcja ma własny katalog, własny `README.md`, własną rolę IAM i własne testy.
+Cargo workspace z całym backendem: 19 funkcji AWS Lambda w Ruście (edition 2024) i wspólna biblioteka [`shared`](shared/README.md). Każda funkcja ma własny katalog, własny `README.md`, własną rolę IAM i własne testy.
 
 Jak funkcje łączą się w system: [`docs/architecture.md`](../docs/architecture.md). Kontrakt HTTP: [`docs/api.md`](../docs/api.md).
 
@@ -18,6 +18,9 @@ Jak funkcje łączą się w system: [`docs/architecture.md`](../docs/architectur
 | [`api/asset-publish`](api/asset-publish/README.md) | `matchday-dam-dev-asset-publish` | `POST /assets/{assetId}/publish` | A | `dam-asset-publish` | `CLEAN_DRAFT`/`ARCHIVED` → `PUBLISHED` |
 | [`api/asset-rescan`](api/asset-rescan/README.md) | `matchday-dam-dev-asset-rescan` | `POST /assets/{assetId}/rescan` | A | `dam-asset-rescan` | `SCAN_FAILED` → `SCANNING` i nowe wykonanie pipeline'u |
 | [`api/asset-delete`](api/asset-delete/README.md) | `matchday-dam-dev-asset-delete` | `DELETE /assets/{assetId}` | A | `dam-asset-delete` | Usuwa pliki i rekord (bez zainfekowanych i będących w przetwarzaniu) |
+| [`api/asset-metadata`](api/asset-metadata/README.md) | `matchday-dam-dev-asset-metadata` | `PUT /assets/{assetId}/metadata` | A | `dam-asset-metadata` | Kategoria, mecz, zawodnicy, tagi, tytuł; referencje sprawdzane w słownikach |
+| [`api/dictionaries-read`](api/dictionaries-read/README.md) | `matchday-dam-dev-dictionaries-read` | `GET /dictionaries` | A–D | `dam-dictionaries-read` | Wszystkie słowniki klubu (sponsorzy tylko dla A) |
+| [`api/dictionaries-write`](api/dictionaries-write/README.md) | `matchday-dam-dev-dictionaries-write` | `PUT`, `DELETE /dictionaries/{kind}/{id}` | A | `dam-dictionaries-write` | Edycja zawodników, sezonów, rozgrywek, meczów, sponsorów |
 
 ### Pipeline bezpieczeństwa (SQS i Step Functions)
 
@@ -36,7 +39,7 @@ Jak funkcje łączą się w system: [`docs/architecture.md`](../docs/architectur
 | Katalog | Co robi |
 |---|---|
 | [`hello-world`](hello-world/README.md) | Funkcja z etapu 0 do weryfikacji łańcucha build → deploy (smoke test w `deploy.yml`) |
-| [`shared`](shared/README.md) | Biblioteka: statusy, autoryzacja, upload, katalog, kontrakty pipeline'u, DynamoDB, S3, logowanie |
+| [`shared`](shared/README.md) | Biblioteka: statusy, autoryzacja, upload, katalog, słowniki, metadane, kontrakty pipeline'u, DynamoDB, S3, logowanie |
 
 ## Kolejność wywołań
 
@@ -76,6 +79,7 @@ Każda funkcja jest zbudowana według tego samego wzorca, więc po przeczytaniu 
 |---|---|---|
 | `RUST_LOG` | wszystkie | poziom logów (`info`), ustawia moduł `rust-lambda` |
 | `ASSETS_TABLE` | upload-*, assets-read, asset-*, validate, finalize-clean, handle-infected | `matchday-dam-dev-assets` |
+| `DICTIONARIES_TABLE` | dictionaries-read, dictionaries-write, asset-metadata | `matchday-dam-dev-dictionaries` |
 | `INCIDENTS_TABLE` | handle-infected | `matchday-dam-dev-incidents` |
 | `QUARANTINE_BUCKET` | upload-*, asset-delete, start-scan, scan, validate, cdr, finalize-clean, handle-infected | bucket kwarantanny |
 | `CLEAN_BUCKET` | assets-read, asset-delete, cdr, renditions, finalize-clean | bucket `clean` |

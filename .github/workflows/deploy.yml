@@ -95,6 +95,11 @@ jobs:
       - name: terraform apply
         run: terraform -chdir="$TF_DIR" apply -input=false -auto-approve -lock-timeout=5m
 
+      # Początkowe słowniki (fikcyjna kadra i terminarz) tylko do pustej tabeli,
+      # więc kolejne deploye nie ruszają wpisów edytowanych przez A.
+      - name: Seed słowników
+        run: ./scripts/seed-dictionaries.sh
+
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version-file: frontend/.nvmrc
