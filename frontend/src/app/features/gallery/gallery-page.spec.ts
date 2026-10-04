@@ -6,6 +6,7 @@ import { AssetsService } from '../../core/api/assets.service';
 import { BROWSER_CONFIRM } from '../../core/api/delete-asset.service';
 import { BROWSER_LOCATION } from '../../core/api/download.service';
 import { asset } from '../../testing/assets';
+import { provideFakeDictionaries } from '../../testing/fake-dictionaries';
 import { FakeOidcSecurityService, provideFakeAuth } from '../../testing/fake-oidc';
 import { GalleryPage } from './gallery-page';
 
@@ -29,6 +30,7 @@ describe('GalleryPage', () => {
       providers: [
         provideRouter([]),
         ...provideFakeAuth(oidc),
+        ...provideFakeDictionaries(),
         { provide: AssetsService, useValue: assets },
         { provide: BROWSER_LOCATION, useValue: { assign } },
         { provide: BROWSER_CONFIRM, useValue: confirm },

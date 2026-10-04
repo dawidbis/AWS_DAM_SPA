@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use aws_sdk_dynamodb::types::AttributeValue;
 use serde::{Deserialize, Serialize};
 
+use crate::metadata::AssetCategory;
 use crate::{AssetStatus, Caller, UserGroup};
 
 /// Widok listy assetów (`GET /assets?view=...`).
@@ -118,6 +119,14 @@ pub struct AssetSummary {
     /// Krótko żyjący URL do podglądu (tylko obrazy): miniatura dla A i B,
     /// podgląd ze znakiem wodnym dla D, `null` w „moich zgłoszeniach”.
     pub preview_url: Option<String>,
+    /// Metadane ustawione przez A (etap 3): identyfikatory wpisów słowników,
+    /// nazwy wyświetla frontend na podstawie `GET /dictionaries`.
+    pub category: Option<AssetCategory>,
+    pub season_id: Option<String>,
+    pub competition_id: Option<String>,
+    pub match_id: Option<String>,
+    pub player_ids: Vec<String>,
+    pub tags: Vec<String>,
 }
 
 /// Odpowiedź `GET /assets`.
@@ -211,6 +220,12 @@ pub struct AssetRecord {
     pub updated_at: u64,
     /// Pipeline utworzył miniaturę i podgląd ze znakiem wodnym.
     pub has_renditions: bool,
+    pub category: Option<AssetCategory>,
+    pub season_id: Option<String>,
+    pub competition_id: Option<String>,
+    pub match_id: Option<String>,
+    pub player_ids: Vec<String>,
+    pub tags: Vec<String>,
 }
 
 impl AssetRecord {
@@ -223,6 +238,16 @@ impl AssetRecord {
             item.get(name)
                 .and_then(|v| v.as_n().ok())
                 .and_then(|n| n.parse::<u64>().ok())
+        };
+        // Zbiory (SS) DynamoDB nie mają kolejności: sortujemy do wyświetlenia.
+        let set = |name: &str| {
+            let mut values = item
+                .get(name)
+                .and_then(|v| v.as_ss().ok())
+                .cloned()
+                .unwrap_or_default();
+            values.sort();
+            values
         };
         let status = string("status")?;
         let created_at = number("createdAt")?;
@@ -242,6 +267,12 @@ impl AssetRecord {
                 .and_then(|v| v.as_bool().ok())
                 .copied()
                 .unwrap_or(false),
+            category: string("category").and_then(|c| AssetCategory::parse(&c)),
+            season_id: string("seasonId"),
+            competition_id: string("competitionId"),
+            match_id: string("matchId"),
+            player_ids: set("playerIds"),
+            tags: set("tags"),
         })
     }
 
@@ -259,6 +290,12 @@ impl AssetRecord {
             created_at: self.created_at,
             updated_at: self.updated_at,
             preview_url,
+            category: self.category,
+            season_id: self.season_id,
+            competition_id: self.competition_id,
+            match_id: self.match_id,
+            player_ids: self.player_ids,
+            tags: self.tags,
         }
     }
 

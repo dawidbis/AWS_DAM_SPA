@@ -38,6 +38,7 @@ POOL="$(output cognito_user_pool_id)"
 CLIENT="$(output cognito_e2e_client_id)"
 TABLE="$(output assets_table)"
 INCIDENTS="$(output incidents_table)"
+DICTIONARIES="$(output dictionaries_table)"
 STATE_MACHINE="$(output scan_state_machine_arn)"
 BUCKETS_JSON="${STORAGE_BUCKETS:-$(terraform -chdir="$TF_DIR" output -json storage_buckets)}"
 bucket() {
@@ -86,6 +87,14 @@ cleanup() {
   done
   if [[ -f "$WORK/uploaded-assets" ]]; then
     mapfile -t -O "${#ASSETS[@]}" ASSETS <"$WORK/uploaded-assets"
+  fi
+  # Wpisy słowników utworzone przez test (rodzaj w DynamoDB i id), na wypadek
+  # przerwania skryptu przed sekcją, która usuwa je przez API.
+  if [[ -f "$WORK/dictionary-entries" ]]; then
+    while read -r kind id; do
+      aws dynamodb delete-item --table-name "$DICTIONARIES" \
+        --key "{\"kind\":{\"S\":\"$kind\"},\"id\":{\"S\":\"$id\"}}" >/dev/null 2>&1
+    done <"$WORK/dictionary-entries"
   fi
   for asset in "${ASSETS[@]}"; do
     aws dynamodb delete-item --table-name "$TABLE" --key "{\"pk\":{\"S\":\"ASSET#$asset\"}}" >/dev/null 2>&1
@@ -322,6 +331,47 @@ fi
 check "16. bez tokenu → 401" test "$(api - GET /me)" = 401
 forged_jwt="$(printf '{"alg":"RS256","kid":"x"}' | base64 | tr -d '=\n' | tr '/+' '_-').$(printf '{"sub":"x","cognito:groups":["admin"],"iss":"https://cognito-idp.eu-central-1.amazonaws.com/eu-central-1_FAKE"}' | base64 | tr -d '=\n' | tr '/+' '_-').c2lnbmF0dXJl"
 check "16. token innej puli → 401" test "$(curl -sS -o /dev/null -w "$HTTP_CODE" -H "authorization: Bearer $forged_jwt" "$API/me")" = 401
+
+# Słowniki i metadane (etap 3). Test zakłada własne wpisy z prefiksem RUN_ID,
+# żeby nie zależeć od seeda, który A mógł zmienić.
+dictionary_put() { # dictionary_put <grupa> <rodzaj> <id> <json> → kod HTTP
+  local group="$1" kind="$2" id="$3" body="$4" partition
+  case "$kind" in
+    players) partition=PLAYER ;;
+    seasons) partition=SEASON ;;
+    competitions) partition=COMPETITION ;;
+    matches) partition=MATCH ;;
+    sponsors) partition=SPONSOR ;;
+  esac
+  echo "$partition $id" >>"$WORK/dictionary-entries"
+  api "$group" PUT "/dictionaries/$kind/$id" "$body"
+}
+season="$RUN_ID-sezon"
+competition="$RUN_ID-rozgrywki"
+game="$RUN_ID-mecz"
+player="$RUN_ID-gracz"
+check "Słowniki: D czyta słowniki bez sponsorów" bash -c \
+  "[[ \$(curl -sS -H 'authorization: Bearer ${TOKEN[viewer]}' '$API/dictionaries' | jq '.sponsors | length') == 0 ]]"
+check "Słowniki: C nie edytuje słowników → 403" test "$(dictionary_put contributor players "$player" '{"name":"Ktoś"}')" = 403
+check "Słowniki: mecz bez sezonu → 400" test "$(dictionary_put admin matches "$game" "{\"seasonId\":\"$season\",\"competitionId\":\"$competition\",\"opponent\":\"Rywal E2E\",\"date\":\"2025-09-14\",\"home\":true}")" = 400
+check "Słowniki: A dodaje sezon" test "$(dictionary_put admin seasons "$season" '{"name":"Sezon E2E"}')" = 200
+check "Słowniki: A dodaje rozgrywki" test "$(dictionary_put admin competitions "$competition" '{"name":"Rozgrywki E2E"}')" = 200
+check "Słowniki: A dodaje mecz" test "$(dictionary_put admin matches "$game" "{\"seasonId\":\"$season\",\"competitionId\":\"$competition\",\"opponent\":\"Rywal E2E\",\"date\":\"2025-09-14\",\"home\":true}")" = 200
+check "Słowniki: A dodaje zawodnika" test "$(dictionary_put admin players "$player" '{"name":"Gracz E2E","number":99}')" = 200
+check "Słowniki: <script> w nazwie → 400" test "$(dictionary_put admin players "$player-xss" '{"name":"<script>alert(1)</script>"}')" = 400
+
+check "Metadane: C nie opisuje assetu → 403" test "$(api contributor PUT "/assets/$exif/metadata" '{"category":"MATCH_PHOTO"}')" = 403
+check "Metadane: nieznany zawodnik → 400" test "$(api admin PUT "/assets/$exif/metadata" '{"playerIds":["nie-ma-takiego"]}')" = 400
+check "Metadane: zainfekowany asset → 409" test "$(api admin PUT "/assets/$eicar/metadata" '{"category":"MATCH_PHOTO"}')" = 409
+check "Metadane: A opisuje asset → 200" test "$(api admin PUT "/assets/$exif/metadata" "{\"category\":\"MATCH_PHOTO\",\"matchId\":\"$game\",\"playerIds\":[\"$player\"],\"tags\":[\"E2E\",\"e2e\"]}")" = 200
+check "Metadane: sezon uzupełniony z meczu" test "$(attribute_of "$exif" seasonId)" = "$season"
+check "Metadane: tagi znormalizowane" test "$(aws dynamodb get-item --table-name "$TABLE" --key "{\"pk\":{\"S\":\"ASSET#$exif\"}}" --query 'Item.tags.SS' --output text)" = e2e
+
+check "Słowniki: sezonu używanego przez mecz nie da się usunąć → 409" test "$(api admin DELETE "/dictionaries/seasons/$season")" = 409
+check "Słowniki: A usuwa mecz" test "$(api admin DELETE "/dictionaries/matches/$game")" = 200
+check "Słowniki: potem sezon" test "$(api admin DELETE "/dictionaries/seasons/$season")" = 200
+api admin DELETE "/dictionaries/competitions/$competition" >/dev/null
+api admin DELETE "/dictionaries/players/$player" >/dev/null
 
 # Usuwanie assetów (A): dowód incydentu zostaje, C nie może usuwać.
 check "Usuwanie: C nie usunie assetu → 403" test "$(api contributor DELETE "/assets/$traversal")" = 403

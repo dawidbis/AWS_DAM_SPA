@@ -12,6 +12,12 @@ export function asset(id: string, overrides: Partial<AssetSummary> = {}): AssetS
     createdAt: 1_700_000_000_000,
     updatedAt: 1_700_000_000_000,
     previewUrl: null,
+    category: null,
+    seasonId: null,
+    competitionId: null,
+    matchId: null,
+    playerIds: [],
+    tags: [],
     ...overrides,
   };
 }

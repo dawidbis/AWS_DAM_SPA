@@ -13,7 +13,7 @@ Jak to działa w AWS (diagramy, przepływy, uprawnienia): [`docs/architecture.md
 | 0 — Fundamenty | Monorepo, bootstrap AWS (stan, OIDC, role CI, budżety), Lambda „hello world" w Ruście, CI/CD | ✅ |
 | 1 — Rdzeń | Cognito, hosting SPA, API z JWT, upload multipart z wznawianiem, skan ClamAV, galeria, publikacja | ✅ |
 | 2 — Bezpieczeństwo w głąb | Step Functions, walidacja magic bytes, CDR, miniatury i podglądy ze znakiem wodnym, JSON Schema, CSP, testy e2e, model zagrożeń, usuwanie assetów | ✅ |
-| 3 — Domena | Słowniki, prawa wizerunkowe, embarga, panel incydentów, alarmy CloudWatch | — |
+| 3 — Domena | Słowniki i metadane assetów, filtry galerii, prawa wizerunkowe, embarga, widoczność dla sponsorów, panel incydentów, alarmy CloudWatch | 🚧 część 1/4: słowniki i metadane |
 | 4 — Portfolio | ADR-y, demo, nagranie | — |
 
 ## Dokumentacja
@@ -40,7 +40,8 @@ frontend/        Angular 22 (standalone, signals, zoneless) + Tailwind CSS 4 + d
 lambdas/         cargo workspace (Rust, edition 2024):
   shared/          modele, statusy, autoryzacja, upload, katalog, kontrakty pipeline'u
   api/             me, upload-init, upload-status, upload-complete, assets-read,
-                   asset-publish, asset-rescan, asset-delete
+                   asset-publish, asset-rescan, asset-delete, asset-metadata,
+                   dictionaries-read, dictionaries-write
   pipeline/        start-scan, scan (ClamAV, obraz kontenera), validate, cdr,
                    renditions, finalize-clean, handle-infected
   hello-world/     smoke test łańcucha build → deploy
@@ -48,9 +49,9 @@ infra/
   bootstrap/       jednorazowo: bucket stanu, OIDC GitHub, role dam-github-*, permission boundary, budżety
   modules/         rust-lambda, auth (Cognito), frontend-hosting (S3 + CloudFront), access-logs,
                    storage (quarantine/clean/renditions/infected), http-api (API Gateway + JWT),
-                   data (DynamoDB assets, incidents), scanner (SQS, Step Functions, Lambdy pipeline'u, SNS)
+                   data (DynamoDB assets, incidents, dictionaries), scanner (SQS, Step Functions, Lambdy pipeline'u, SNS)
   envs/dev/        środowisko dev (backend S3 z use_lockfile)
-scripts/         build obrazu skanera, deploy frontendu, zakładanie kont
+scripts/         build obrazu skanera, deploy frontendu, zakładanie kont, seed słowników
 tests/           e2e scenariuszy bezpieczeństwa, pliki ataków
 .github/         CI, plan w PR, deploy po merge, e2e
 justfile         build, check, bootstrap, plan, deploy, destroy

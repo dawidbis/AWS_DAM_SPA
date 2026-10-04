@@ -172,6 +172,19 @@ Nagłówki CloudFront: CSP (`script-src 'self'`, `frame-ancestors 'none'`), HSTS
 
 A usuwa asset przyciskiem **Usuń** w galerii albo w panelu administracji (z potwierdzeniem). `DELETE /assets/{id}` usuwa wersję po CDR, miniaturę i podgląd oraz rekord w DynamoDB. Buckety mają wersjonowanie, więc plik można odzyskać przez 30 dni z poziomu konsoli S3 (wersje nieaktualne). Assetów zainfekowanych (dowód incydentu) i tych w trakcie skanowania nie da się usunąć (409).
 
+## 15. Słowniki i metadane assetów (etap 3, część 1)
+
+Nic nie trzeba konfigurować ręcznie. Deploy tworzy tabelę `matchday-dam-dev-dictionaries` i trzy Lambdy (`dictionaries-read`, `dictionaries-write`, `asset-metadata`), a krok **Seed słowników** wgrywa fikcyjną kadrę, sezony, rozgrywki, terminarz i sponsorów z `scripts/seed/dictionaries.json`. Seed działa tylko wtedy, gdy tabela jest pusta, więc kolejne deploye nie nadpisują zmian A.
+
+Sprawdzenie (jako A):
+
+1. **Administracja → Słowniki**: zakładki z zawodnikami, sezonami, rozgrywkami, meczami i sponsorami. Dodaj zawodnika: identyfikator podpowie się z imienia i nazwiska.
+2. **Administracja → Do publikacji → Opisz** przy dowolnym pliku: wybierz mecz (sezon i rozgrywki ustawią się same), zaznacz zawodników, wpisz tagi po przecinku, **Zapisz**. Na kafelku pojawią się kategoria, mecz, zawodnicy i tagi.
+3. Spróbuj usunąć sezon, do którego należy mecz: API odpowie, że wpis jest używany przez mecze.
+4. Jako B lub D: kafelki w galerii pokazują opis, ale nie ma przycisku **Opisz** ani dostępu do słowników.
+
+Seed ręcznie (np. po wyczyszczeniu tabeli): `just seed` w CloudShell.
+
 ## Hamulec kosztów
 
 ```bash

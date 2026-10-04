@@ -103,3 +103,34 @@ resource "aws_dynamodb_table" "incidents" {
     enabled = false # false = klucz należący do AWS (domyślne szyfrowanie)
   }
 }
+
+# Słowniki klubu (etap 3): zawodnicy, sezony, rozgrywki, mecze, sponsorzy.
+# Klucz partycji `kind` (PLAYER, SEASON, …), klucz sortowania `id` (slug),
+# wpis jako JSON w atrybucie `data` (shared::dictionary). Kilkadziesiąt
+# rekordów, więc lista to Query po `kind` albo Scan całej tabeli.
+resource "aws_dynamodb_table" "dictionaries" {
+  #checkov:skip=CKV_AWS_119:Szyfrowanie kluczem należącym do AWS (bez kosztu KMS CMK, rozdział 7.3)
+  name                        = "${var.name_prefix}-dictionaries"
+  billing_mode                = "PAY_PER_REQUEST"
+  hash_key                    = "kind"
+  range_key                   = "id"
+  deletion_protection_enabled = var.deletion_protection
+
+  attribute {
+    name = "kind"
+    type = "S"
+  }
+
+  attribute {
+    name = "id"
+    type = "S"
+  }
+
+  point_in_time_recovery {
+    enabled = true
+  }
+
+  server_side_encryption {
+    enabled = false # false = klucz należący do AWS (domyślne szyfrowanie)
+  }
+}

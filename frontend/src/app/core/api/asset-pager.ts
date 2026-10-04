@@ -26,6 +26,13 @@ export class AssetPager {
     }
   }
 
+  /** Podmienia element listy (np. po edycji metadanych). */
+  replace(asset: AssetSummary): void {
+    this.items.update((items) =>
+      items.map((item) => (item.assetId === asset.assetId ? asset : item)),
+    );
+  }
+
   remove(assetId: string): void {
     this.items.update((items) => items.filter((item) => item.assetId !== assetId));
   }

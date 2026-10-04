@@ -44,9 +44,11 @@ Skrypt zakłada tymczasowych użytkowników w każdej grupie (A–D) przez `Admi
 | 14 | błąd skanera (rekord `SCANNING` bez pliku w kwarantannie) | `SCAN_FAILED` |
 | 15 | role poza swoim zakresem | `iam:SimulatePrincipalPolicy` → Deny dla 6 przypadków, np. `dam-assets-read` nie czyta kwarantanny, `dam-scan` nie zapisuje do `clean`, `dam-cdr` nie zapisuje do `infected` (pomijany, jeśli brak uprawnienia do symulacji) |
 | 16 | API bez tokenu / z tokenem innej puli | 401 |
+| — | słowniki (etap 3) | D czyta słowniki bez sponsorów; C nie edytuje (403); mecz bez sezonu → 400; `<script>` w nazwie → 400; sezonu używanego przez mecz nie da się usunąć (409) |
+| — | metadane (etap 3) | C → 403; nieznany zawodnik → 400; zainfekowany asset → 409; A opisuje asset → 200, sezon uzupełniony z meczu, tagi `E2E`/`e2e` zapisane jako jeden `e2e` |
 | — | usuwanie | C → 403, `INFECTED` → 409, A → 200, rekord i plik znikają |
 
-Na końcu skrypt usuwa użytkowników i dane testowe (pułapka `EXIT`). Wyjątek: plik EICAR w `infected` zostaje (Object Lock) jako dowód.
+Na końcu skrypt usuwa użytkowników, assety i wpisy słowników z prefiksem przebiegu (pułapka `EXIT`, także po przerwaniu). Wyjątek: plik EICAR w `infected` zostaje (Object Lock) jako dowód. Test słowników zakłada własne wpisy (`<RUN_ID>-sezon`, `-mecz`, `-gracz`…), więc nie zależy od seeda, który A mógł zmienić.
 
 ### Uruchomienie
 

@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://matchday-dam.invalid/schemas/asset-metadata.schema.json",
+  "title": "PUT /assets/{assetId}/metadata",
+  "description": "Metadane assetu ustawiane przez A (etap 3). Referencje do słowników to identyfikatory (slugi), nie wolny tekst; ich istnienie sprawdza Lambda asset-metadata. Limity muszą być zgodne ze stałymi w lambdas/shared/src/metadata.rs (pilnuje tego test).",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "title": {
+      "description": "Bez znaków sterujących i nawiasów kątowych (scenariusz 8).",
+      "type": ["string", "null"],
+      "maxLength": 120,
+      "pattern": "^[^<>\\x00-\\x1F\\x7F]*$"
+    },
+    "category": {
+      "enum": [
+        "MATCH_PHOTO",
+        "TRAINING_PHOTO",
+        "VIDEO",
+        "BRAND_IDENTITY",
+        "SPONSOR_MATERIAL",
+        "PRESS_DOCUMENT",
+        null
+      ]
+    },
+    "seasonId": { "$ref": "#/$defs/optionalSlug" },
+    "competitionId": { "$ref": "#/$defs/optionalSlug" },
+    "matchId": { "$ref": "#/$defs/optionalSlug" },
+    "playerIds": {
+      "type": "array",
+      "maxItems": 30,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/slug" }
+    },
+    "tags": {
+      "type": "array",
+      "maxItems": 10,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 30,
+        "pattern": "^[\\p{L}\\p{N} -]+$"
+      }
+    }
+  },
+  "$defs": {
+    "slug": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "optionalSlug": {
+      "anyOf": [{ "$ref": "#/$defs/slug" }, { "type": "null" }]
+    }
+  }
+}

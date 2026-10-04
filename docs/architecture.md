@@ -48,6 +48,8 @@ flowchart TB
         APUB[asset-publish]
         ARESCAN[asset-rescan]
         ADEL[asset-delete]
+        AMETA[asset-metadata]
+        DICT["dictionaries-read<br/>dictionaries-write"]
     end
 
     subgraph Storage["S3"]
@@ -74,6 +76,7 @@ flowchart TB
     subgraph Data["DynamoDB"]
         ASSETS[(assets)]
         INC[(incidents)]
+        DICTS[(dictionaries)]
     end
 
     SNS[SNS security-alerts<br/>e-mail]
@@ -81,7 +84,7 @@ flowchart TB
     UI -->|HTML/JS| CF --> SITE
     UI -->|login PKCE| COG
     UI -->|"JWT"| APIGW
-    APIGW --> ME & UINIT & USTAT & UCOMP & AREAD & APUB & ARESCAN & ADEL
+    APIGW --> ME & UINIT & USTAT & UCOMP & AREAD & APUB & ARESCAN & ADEL & AMETA & DICT
     UI -->|"PUT części<br/>(presigned URL)"| Q
     UI -->|"GET miniatur/plików<br/>(presigned URL)"| C & R
 
@@ -100,6 +103,8 @@ flowchart TB
     Pipeline -->|statusy, metadane| ASSETS
     INF --> INC
     ARESCAN -->|StartExecution| SFN
+    DICT --> DICTS
+    AMETA -.sprawdza referencje.-> DICTS
 ```
 
 W skrócie:
@@ -110,6 +115,7 @@ W skrócie:
 - **Pliki nigdy nie przechodzą przez API.** Przeglądarka wysyła części prosto do bucketu `quarantine` po presigned URL-ach, a pobiera pliki z `clean`/`renditions` też po presigned URL-ach (5 min).
 - **Pipeline** uruchamia się sam: zdarzenie S3 → EventBridge → SQS → `start-scan` → Step Functions. Maszyna stanów woła kolejne Lambdy: skan ClamAV, walidację typu, rekonstrukcję obrazu (CDR), miniatury, finalizację.
 - **Stan** całego systemu to rekord w tabeli `assets` (status + metadane). Każda zmiana statusu jest warunkowa.
+- **Słowniki** klubu (zawodnicy, sezony, rozgrywki, mecze, sponsorzy) są w tabeli `dictionaries`; metadane assetów odwołują się do nich identyfikatorami (etap 3).
 
 ## 2. Zasada nadrzędna: zero zaufania do pliku
 
@@ -133,13 +139,13 @@ Wszystko, co przychodzi od użytkownika (plik, nazwa, deklarowany typ i rozmiar,
 | S3 | `matchday-dam-dev-frontend-<konto>` | Pliki Angulara + `config.json` (adresy Cognito/API) | `modules/frontend-hosting` |
 | Cognito | user pool `matchday-dam-dev` | Logowanie (managed login, PKCE), grupy A–D, tokeny 60 min | `modules/auth` |
 | API Gateway | HTTP API `matchday-dam-dev` | Trasy REST, autoryzator JWT, CORS, throttling 10 req/s (burst 20), logi dostępu | `modules/http-api` |
-| Lambda | 16 funkcji `matchday-dam-dev-*` | Logika API i kroki pipeline'u | `modules/rust-lambda`, `modules/scanner` |
+| Lambda | 19 funkcji `matchday-dam-dev-*` | Logika API i kroki pipeline'u | `modules/rust-lambda`, `modules/scanner` |
 | S3 | `quarantine`, `clean`, `renditions`, `infected` | Pliki na kolejnych etapach weryfikacji | `modules/storage` |
 | EventBridge | reguła `quarantine-object-created` | Nowy obiekt w kwarantannie → kolejka | `modules/scanner` |
 | SQS | `scan-queue` + `scan-dlq` | Bufor zdarzeń, ponowienia, martwe komunikaty po 3 próbach | `modules/scanner` |
 | Step Functions | `matchday-dam-dev-scan-pipeline` (Standard, JSONata) | Orkiestracja kroków, ponowienia, ścieżki błędów | `modules/scanner/pipeline.tf` |
 | ECR | `matchday-dam-dev-scanner` | Obraz kontenera Lambdy `scan` z ClamAV (3 ostatnie obrazy) | `modules/scanner` |
-| DynamoDB | `assets`, `incidents` | Stan assetów i incydentów, on-demand, PITR | `modules/data` |
+| DynamoDB | `assets`, `incidents`, `dictionaries` | Stan assetów, incydenty, słowniki klubu; on-demand, PITR | `modules/data` |
 | EventBridge | reguła `asset-infected` | Zdarzenie domenowe → e-mail SNS | `modules/scanner/alerts.tf` |
 | SNS | `security-alerts` | Alert e-mail o wykryciu malware | `modules/scanner/alerts.tf` |
 | CloudWatch Logs | `/aws/lambda/*`, `/aws/apigateway/*`, `/aws/vendedlogs/states/*` | Logi JSON (14 dni) | wszystkie moduły |
@@ -452,6 +458,34 @@ sequenceDiagram
 3. Usuwa rekord z `assets` **warunkowo na statusie odczytanym w kroku 1**; jeśli w międzyczasie się zmienił, rekord zostaje (409).
 4. Buckety mają wersjonowanie, więc usunięte pliki można odzyskać przez 30 dni (`clean`) lub 7 dni (`renditions`) jako wersje nieaktualne.
 
+**Słowniki i metadane** (etap 3, tylko A):
+
+1. Słowniki edytuje się na stronie **Administracja → Słowniki** (`PUT`/`DELETE /dictionaries/{kind}/{id}`, Lambda `dictionaries-write`). Mecz musi wskazywać istniejący sezon i rozgrywki; sezonu ani rozgrywek używanych przez mecz nie da się usunąć.
+2. Przycisk **Opisz** (kolejka publikacji, galeria) otwiera edytor metadanych → `PUT /assets/{id}/metadata` (Lambda `asset-metadata`): JSON Schema, sprawdzenie referencji w `dictionaries` (`BatchGetItem`), mecz uzupełnia sezon i rozgrywki, warunkowy `UpdateItem` tylko dla `CLEAN_DRAFT`/`PUBLISHED`/`ARCHIVED`.
+3. Każda grupa czyta słowniki przez `GET /dictionaries` (bez sponsorów, poza A), a kafelki pokazują nazwy zamiast identyfikatorów.
+4. Początkowe słowniki (fikcyjna kadra i terminarz) wgrywa krok deployu `scripts/seed-dictionaries.sh`, tylko gdy tabela jest pusta.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant A as Admin (A)
+    participant API as API Gateway
+    participant DW as dictionaries-write
+    participant AM as asset-metadata
+    participant D as DynamoDB dictionaries
+    participant T as DynamoDB assets
+    A->>API: PUT /dictionaries/matches/2025-09-13-unia-lesna
+    API->>DW: wywołanie (grupa A)
+    DW->>D: GetItem sezon, rozgrywki (muszą istnieć)
+    DW->>D: PutItem kind=MATCH, id, data
+    A->>API: PUT /assets/{id}/metadata {matchId, playerIds, tags}
+    API->>AM: wywołanie (grupa A)
+    AM->>AM: JSON Schema, normalizacja tagów
+    AM->>D: BatchGetItem (mecz, zawodnicy)
+    AM->>T: UpdateItem warunek status ∈ CLEAN_DRAFT/PUBLISHED/ARCHIVED
+    AM-->>A: 200 metadane (sezon i rozgrywki z meczu)
+```
+
 ## 10. Cykl życia assetu (statusy)
 
 ```mermaid
@@ -531,10 +565,19 @@ Atrybuty i kto je zapisuje:
 | `exifArtist`, `exifCopyright`, `exifTakenAt` | S | finalize-clean | whitelista EXIF (po sanityzacji) |
 | `hasRenditions` | BOOL | finalize-clean | są miniatura i podgląd |
 | `publishedAt`, `publishedBy` | N, S | asset-publish | kto i kiedy opublikował |
+| `category` | S | asset-metadata | `MATCH_PHOTO`, `TRAINING_PHOTO`, `VIDEO`, `BRAND_IDENTITY`, `SPONSOR_MATERIAL`, `PRESS_DOCUMENT` |
+| `seasonId`, `competitionId`, `matchId` | S | asset-metadata | identyfikatory wpisów słowników (mecz wyznacza sezon i rozgrywki) |
+| `playerIds`, `tags` | SS | asset-metadata | zbiory: zawodnicy (slugi), tagi (małymi literami) |
+| `title` | S | upload-init, asset-metadata | tytuł (A może go zmienić) |
+| `metadataUpdatedAt`, `metadataUpdatedBy` | N, S | asset-metadata | kto i kiedy opisał asset |
 
 ### `incidents`
 
 Klucz: `incidentId` (= `assetId`, jeden incydent na asset). Atrybuty: `assetId`, `uploaderId`, `sourceIp`, `signature`, `engine`, `detectedAt`, `status` (`OPEN`), `alertSentAt`. Zapisuje wyłącznie `handle-infected`.
+
+### `dictionaries`
+
+Klucz partycji `kind` (`PLAYER`, `SEASON`, `COMPETITION`, `MATCH`, `SPONSOR`), klucz sortowania `id` (slug, np. `michal-kruk`). Atrybut `data` przechowuje wpis jako JSON (pola: [`docs/api.md`](api.md#put-dictionarieskindid)). Zapisuje `dictionaries-write` (A) i seed przy pierwszym deployu. Czyta `dictionaries-read` (`Scan`) i `asset-metadata` (`BatchGetItem`).
 
 ## 13. Role IAM: kto co może
 
@@ -550,6 +593,9 @@ Każda funkcja ma własną rolę `dam-<nazwa>` z polityką `dam-<nazwa>-main` (c
 | `dam-asset-publish` | — | `UpdateItem` assets | — |
 | `dam-asset-rescan` | — | `UpdateItem` assets | `states:StartExecution` scan-pipeline |
 | `dam-asset-delete` | `DeleteObject` clean/*, renditions/*, quarantine/* | `GetItem`, `DeleteItem` assets | — |
+| `dam-asset-metadata` | — | `BatchGetItem` dictionaries, `UpdateItem` assets | — |
+| `dam-dictionaries-read` | — | `Scan` dictionaries | — |
+| `dam-dictionaries-write` | — | `GetItem`, `PutItem`, `DeleteItem`, `Query` dictionaries | — |
 | `dam-start-scan` | — | — | SQS receive/delete, `states:StartExecution` |
 | `dam-scan` | `GetObject` quarantine/* | — | — |
 | `dam-validate` | `GetObject` quarantine/* | `GetItem` assets | — |
@@ -573,12 +619,12 @@ Uzasadnienie: [ADR 0013](adr/0013-github-oidc-deploy-roles.md).
 
 ## 14. Grupy użytkowników A–D
 
-| Grupa (Cognito) | Kto | Galeria | Pobieranie oryginału | Upload | Moje zgłoszenia | Panel admina (publikacja, rescan, usuwanie) |
-|---|---|---|---|---|---|---|
-| A `admin` | dział komunikacji | miniatury | `PUBLISHED`, `CLEAN_DRAFT` | ✅ | ✅ (wszystkie statusy) | ✅ |
-| B `staff` | marketing, redakcja | miniatury | `PUBLISHED` | — | — | — |
-| C `contributor` | fotografowie, agencje | — | — | ✅ | ✅ (`INFECTED`/`SCAN_FAILED` jako `REJECTED`) | — |
-| D `viewer` | sponsorzy, media | **tylko podgląd ze znakiem wodnym** | — | — | — | — |
+| Grupa (Cognito) | Kto | Galeria | Pobieranie oryginału | Upload | Moje zgłoszenia | Panel admina (publikacja, rescan, usuwanie, metadane, słowniki) | Słowniki (odczyt) |
+|---|---|---|---|---|---|---|---|
+| A `admin` | dział komunikacji | miniatury | `PUBLISHED`, `CLEAN_DRAFT` | ✅ | ✅ (wszystkie statusy) | ✅ | ✅ ze sponsorami |
+| B `staff` | marketing, redakcja | miniatury | `PUBLISHED` | — | — | — | ✅ bez sponsorów |
+| C `contributor` | fotografowie, agencje | — | — | ✅ | ✅ (`INFECTED`/`SCAN_FAILED` jako `REJECTED`) | — | ✅ bez sponsorów |
+| D `viewer` | sponsorzy, media | **tylko podgląd ze znakiem wodnym** | — | — | — | — | ✅ bez sponsorów |
 
 Reguły są w `shared::catalog` (`AssetView::allowed_groups`, `can_download`, `can_delete`, `preview_source`, `status_for_uploader`) i w stałych `UPLOADERS` Lambd uploadu. Frontend powiela je tylko w strażnikach tras (`requireGroups`) i w ukrywaniu przycisków.
 
@@ -639,7 +685,8 @@ flowchart LR
     S3 -->|tak / cron / ręcznie| S4["build obrazu ClamAV<br/>push do ECR"]
     S3 -->|nie| S5[ostatni obraz z ECR]
     S4 & S5 --> S6[terraform apply]
-    S6 --> S7["frontend → S3<br/>+ invalidacja CloudFront"]
+    S6 --> SEED["seed słowników<br/>(tylko pusta tabela)"]
+    SEED --> S7["frontend → S3<br/>+ invalidacja CloudFront"]
     S7 --> S8[smoke testy]
     CRON["cron pon. 04:23 UTC"] --> DEP
 ```

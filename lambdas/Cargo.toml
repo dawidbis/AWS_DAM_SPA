@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["shared", "hello-world", "api/me", "api/upload-init", "api/upload-status", "api/upload-complete", "api/assets-read", "api/asset-publish", "api/asset-rescan", "api/asset-delete", "pipeline/scan", "pipeline/start-scan", "pipeline/finalize-clean", "pipeline/handle-infected", "pipeline/validate", "pipeline/cdr", "pipeline/renditions"]
+members = ["shared", "hello-world", "api/me", "api/upload-init", "api/upload-status", "api/upload-complete", "api/assets-read", "api/asset-publish", "api/asset-rescan", "api/asset-delete", "api/asset-metadata", "api/dictionaries-read", "api/dictionaries-write", "pipeline/scan", "pipeline/start-scan", "pipeline/finalize-clean", "pipeline/handle-infected", "pipeline/validate", "pipeline/cdr", "pipeline/renditions"]
 
 [workspace.package]
 edition = "2024"
