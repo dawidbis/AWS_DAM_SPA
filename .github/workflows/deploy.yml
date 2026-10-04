@@ -32,6 +32,11 @@ jobs:
     permissions:
       contents: read
       id-token: write  # OIDC do AWS (rola dam-github-deploy)
+    env:
+      # Zipy z CI leżą poza lambdas/target: rust-cache przy niepełnym trafieniu
+      # klucza (np. zmiana Cargo.lock) czyści katalog target przed buildem
+      # skanera i usuwał pobrane artefakty.
+      TF_VAR_lambda_artifacts_dir: ${{ github.workspace }}/dist/lambda
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -41,7 +46,7 @@ jobs:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: lambdas
-          path: lambdas/target/lambda
+          path: dist/lambda
 
       - uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
         with:

@@ -28,3 +28,6 @@ node_modules/
 .env
 .env.*
 /lambdas/pipeline/scan/container/bootstrap
+
+# Artefakty Lambd pobrane w deployu (CI)
+/dist/

@@ -92,7 +92,7 @@ Uwaga na cykl: frontend potrzebuje adresów Cognito i API (`config.json`), a Cog
 |---|---|---|
 | `region` | `eu-central-1` | — |
 | `project` / `environment` | `matchday-dam` / `dev` | — |
-| `lambda_artifacts_dir` | `../../../lambdas/target/lambda` | artefakt `lambdas` z `ci.yml` |
+| `lambda_artifacts_dir` | `../../../lambdas/target/lambda` | artefakt `lambdas` z `ci.yml`, pobrany do `dist/lambda` (poza `lambdas/target`, który czyści rust-cache) → `TF_VAR_lambda_artifacts_dir` |
 | `scanner_image_uri` | `""` | `scripts/build-scanner.sh` → `TF_VAR_scanner_image_uri` |
 | `alert_email` | `""` | zmienna repozytorium `ALERT_EMAIL` → `TF_VAR_alert_email` |
 
