@@ -29,7 +29,7 @@
     "@eslint/js": "^10.0.1",
     "@tailwindcss/postcss": "^4.1.12",
     "angular-eslint": "22.5.0",
-    "daisyui": "^5.7.47",
+    "daisyui": "^5.7.50",
     "eslint": "^10.9.1",
     "jsdom": "^30.0.0",
     "postcss": "^8.5.3",
